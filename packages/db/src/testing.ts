@@ -59,6 +59,18 @@ export async function createTestDatabase(
       const client = new pg.Client({ connectionString: adminUrl });
       await client.connect();
       try {
+        // pg's pool.end() resolves before its sockets have closed; terminating
+        // those backends (WITH FORCE) would surface as unhandled 57P01 errors
+        // in the closing clients. Give them a moment, then force as a last resort.
+        for (let attempt = 0; attempt < 20; attempt++) {
+          try {
+            await client.query(`drop database if exists "${name}"`);
+            return;
+          } catch (error) {
+            if ((error as { code?: string }).code !== '55006') throw error; // object in use
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+        }
         await client.query(`drop database if exists "${name}" with (force)`);
       } finally {
         await client.end();

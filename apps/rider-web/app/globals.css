@@ -1,0 +1,123 @@
+/* Provisional styling (brand is an open decision, D-UI). */
+:root {
+  --bg: #ffffff;
+  --surface: #f3f4f6;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #0f766e;
+  --on-primary: #ffffff;
+  --danger: #b91c1c;
+  --warn: #92400e;
+  --border: #d1d5db;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f14;
+    --surface: #1f2937;
+    --text: #f9fafb;
+    --muted: #9ca3af;
+    --primary: #2dd4bf;
+    --on-primary: #04201d;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --border: #374151;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+nav {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+nav a {
+  color: var(--text);
+}
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+button {
+  min-height: 44px;
+  border-radius: 10px;
+  border: 0;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--primary);
+  color: var(--on-primary);
+  cursor: pointer;
+}
+button.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+button.danger {
+  background: var(--danger);
+  color: var(--on-primary);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+input {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 16px;
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}
+label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.muted {
+  color: var(--muted);
+}
+.error {
+  color: var(--danger);
+}
+.badge {
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  padding: 4px 8px;
+  justify-self: start;
+  margin: 0;
+}
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
