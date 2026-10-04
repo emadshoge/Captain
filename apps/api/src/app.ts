@@ -8,6 +8,8 @@ import { createLogger, REQUEST_ID_HEADER, resolveRequestId } from '@captain/logg
 import Fastify, { LogController, type FastifyBaseLogger } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import type { DestinationStream } from 'pino';
+import { adminRoutes } from './admin/routes';
+import { registerStaffGuard } from './auth/guard';
 import { CSRF_HEADER } from './auth/http';
 import { authRoutes } from './auth/routes';
 import { createOtpSenders, type OtpSenders } from './auth/senders';
@@ -16,6 +18,7 @@ import { devRoutes } from './dev/routes';
 import { registerErrorHandling } from './errors';
 import { riderAccountRoutes } from './rider/routes';
 import { healthRoutes } from './routes/health';
+import { staffRoutes } from './staff/routes';
 
 export interface BuildAppOptions {
   config: ApiConfig;
@@ -99,10 +102,15 @@ export async function buildApp({
     now: now ?? (() => new Date()),
   };
   app.decorateRequest('auth', null);
+  // Fail-closed authorization for /v1/admin, /v1/operator and /v1/staff routes.
+  // Registered before any route plugin so every route inherits it.
+  registerStaffGuard(app, deps);
 
   await app.register(healthRoutes, { pool: dbPool, migrationsFolder });
   await app.register(authRoutes, { deps });
   await app.register(riderAccountRoutes, { deps });
+  await app.register(staffRoutes, { deps });
+  await app.register(adminRoutes, { deps });
   if (config.APP_ENV === 'development' || config.APP_ENV === 'test') {
     await app.register(devRoutes, { senders: otpSenders });
   }

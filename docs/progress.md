@@ -6,15 +6,69 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–4 (Phase 4 = authentication and request security).
-- **Next phase:** Phase 5 — Authorization, staff management, audit
+- **Completed phases:** 0–5 (Phase 5 = authorization, staff management, audit).
+- **Next phase:** Phase 6 — Fleet, zones, devices and the simulator
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
-  `claude/phase-4-auth` (stacked on Phase 3).
+  `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (stacked on Phase 4).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 5: Authorization, staff management, audit
+CI for Phase 4: run 37212061513 on `cea9bf4`, both jobs passed.
+
+Changed:
+- **Fail-closed guard** (`apps/api/src/auth/guard.ts`): every staff route
+  needs authenticated active staff plus the route's declared permission.
+  A route with no declaration is denied. With `STAFF_MFA_REQUIRED`, only
+  TOTP-verified sessions pass (except enrollment routes).
+- **Permission catalogue** in `@captain/contracts`, kept in sync with the
+  database by a test.
+- **Staff TOTP** (migration `0003_staff_mfa`): RFC 6238 implementation,
+  AES-256-GCM-encrypted secret, replay protection. Enrollment
+  (setup/confirm), MFA at sign-in (`totpCode`), admin reset.
+  `STAFF_MFA_REQUIRED` is mandatory in staging/production.
+- **Staff management API:** list, create, status change, role
+  replacement, MFA reset. All audited with reasons; no self-changes;
+  last-admin protection; deactivation revokes sessions.
+- **Rider administration API:** search (phone in any format, email, id,
+  name), detail with wallet figures (audited view), suspend/unsuspend
+  (sessions revoked), and complete deletion. Completion is blocked by an
+  open ride, an active reservation, a non-zero balance, active holds, an
+  open incident or an open refund. It removes personal data and keeps
+  financial records.
+- **Audit API:** filters and keyset pagination.
+
+Executed checks:
+- API tests 83 on PostgreSQL 16.14 (39 new):
+  - **Matrix:** 11 staff routes × anonymous/rider/operator/admin.
+  - **Fail-closed:** an injected undeclared `/v1/admin` or `/v1/operator`
+    route is denied.
+  - **Tampering:** an operator cannot self-promote, and forged
+    headers/query params have no effect; staff cookie writes need CSRF.
+  - **TOTP:** RFC 4226/6238 test vectors; enrollment gate; required,
+    wrong and replayed codes; encrypted storage; reset.
+  - **Staff management:** audit row with actor, reason and request ID;
+    duplicates; self-change and last-admin protection; session revocation.
+  - **Rider administration:** search formats, audited detail view,
+    suspension lifecycle, deletion blocked by balance then completed after
+    a compensating entry, ledger retained, contact freed for a new
+    account.
+  - **Audit:** filters and pagination.
+- Config tests 37.
+
+Not tested / not done:
+- **Staff UI:** Phase 11.
+- **Operator routes:** none exist yet (Phase 6 adds fleet routes under
+  `/v1/operator`); the matrix must be extended with each new route.
+- **WebAuthn:** not implemented (TOTP chosen; possible upgrade).
+- **CLI-created first admin and TOTP:** a CLI-created admin must enroll
+  TOTP on first sign-in when `STAFF_MFA_REQUIRED=true`. The flow is
+  tested via the API; the real authenticator-app experience is not
+  verified.
+
 
 ### 2026-10-04 — Phase 4: Authentication and request security
 CI for Phase 3: run 37211222429 on `70ec1c1`, both jobs passed (incl. the

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   inet,
@@ -159,6 +160,8 @@ export const authSessions = pgTable(
     riderId: uuid('rider_id').references(() => riders.id),
     staffId: uuid('staff_id').references(() => staffUsers.id),
     client: sessionClient('client').notNull(),
+    /** Staff: second factor verified at sign-in. */
+    mfaVerified: boolean('mfa_verified').notNull().default(false),
     expiresAt: ts('expires_at').notNull(),
     lastUsedAt: ts('last_used_at').notNull().defaultNow(),
     revokedAt: ts('revoked_at'),
@@ -208,3 +211,17 @@ export const rateLimitBuckets = pgTable(
     index('rate_limit_buckets_window_idx').on(t.windowStart),
   ],
 );
+
+/**
+ * Staff TOTP second factor (RFC 6238). The secret is encrypted at rest
+ * (AES-256-GCM, key derived from AUTH_SECRET). `last_used_step` blocks replay.
+ */
+export const staffTotp = pgTable('staff_totp', {
+  staffId: uuid('staff_id')
+    .primaryKey()
+    .references(() => staffUsers.id),
+  secretCiphertext: text('secret_ciphertext').notNull(),
+  confirmedAt: ts('confirmed_at'),
+  lastUsedStep: integer('last_used_step'),
+  createdAt: createdAt(),
+});

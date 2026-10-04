@@ -71,6 +71,8 @@ const apiBaseSchema = baseSchema.extend(providerSchema.shape).extend({
   REFRESH_TOKEN_TTL_DAYS: int(1, 90).default(30),
   RIDER_SESSION_MAX_DAYS: int(1, 365).default(90),
   STAFF_SESSION_MAX_HOURS: int(1, 24).default(12),
+  /** Staff must verify a TOTP second factor before using staff APIs. Must be true in staging/production. */
+  STAFF_MFA_REQUIRED: bool.default(true),
 
   // Browser security
   /** Exact origins allowed by CORS (comma-separated). Required in staging/production. */
@@ -105,6 +107,8 @@ export const apiEnvSchema = apiBaseSchema
       issue('COOKIE_SECURE', 'must be true in staging/production');
     if (deployed && !config.SMTP_REQUIRE_TLS)
       issue('SMTP_REQUIRE_TLS', 'must be true in staging/production');
+    if (deployed && !config.STAFF_MFA_REQUIRED)
+      issue('STAFF_MFA_REQUIRED', 'must be true in staging/production');
     if (config.OTP_EMAIL_PROVIDER === 'smtp') {
       for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'] as const) {
         if (!config[key]) issue(key, 'required when OTP_EMAIL_PROVIDER=smtp');

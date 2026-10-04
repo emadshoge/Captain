@@ -29,4 +29,4 @@ riders) → production.
 | L16 | Approved pricing, zones, legal text, branding in production config | Section A of user-actions | pending | — |
 | L17 | Small controlled operational pilot completed with incident review | all above | pending | — |
 | L18 | Production launch explicitly authorized by the owner | L1–L17, L19 | pending | — |
-| L19 | Staff second factor (TOTP/WebAuthn) implemented and enrolled for every admin | R-44 | pending | — |
+| L19 | Every production staff account has enrolled TOTP (implemented Phase 5, R-48) | production staff list | pending | — |

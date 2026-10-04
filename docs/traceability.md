@@ -22,7 +22,7 @@ Updated at the end of every phase.
 | F9 | Secure cookies + CSRF | `apps/api/src/auth/http.ts` | cookie/CSRF/Origin tests | implemented | |
 | F10 | Bounded request sizes | Fastify `bodyLimit` | 413 test | implemented | default 1 MiB |
 | F11 | Health/readiness without secrets | `apps/api/src/routes/health.ts` | health tests | implemented | |
-| F12 | Audit records for sensitive staff actions | — | — | planned (Phase 5) | |
+| F12 | Audit records for sensitive staff actions | `apps/api/src/lib/audit.ts` + staff/admin routes | `authz.test.ts` | implemented | append-only (DB) |
 | F13 | Reproducible cloud setup + PostgreSQL cluster | `scripts/*`, `.claude/` | manual runs (progress.md) | implemented | hook active once on `main` |
 | F14 | CI: format, lint, typecheck, tests (PG), builds, Expo checks | `.github/workflows/ci.yml` | CI runs | implemented | |
 | F15 | Browser E2E in CI | — | — | planned (Phase 10–11) | |
@@ -50,12 +50,12 @@ Updated at the end of every phase.
 | A3 | Sessions: expiry, refresh, logout, revocation | implemented (reuse detection) | 4 |
 | A4 | Secure mobile token storage | planned | 9 |
 | A5 | Browser sessions (cookies + CSRF) | implemented (API side); web client Phase 10 | 4/10 |
-| A6 | Suspension and deletion with financial retention | partial: suspension enforced, deletion request implemented; staff completion Phase 5 (`docs/privacy-retention.md`) | 4/5 |
+| A6 | Suspension and deletion with financial retention | implemented (suspend/unsuspend, deletion request + staff completion with blockers; ledger retained) | 4/5 |
 | A7 | Profile/contact change with re-verification | implemented | 4 |
-| A8 | Staff provisioning (no public admin sign-up) | implemented (audited CLI); dashboard management Phase 5/11; staff 2FA planned | 4/5 |
+| A8 | Staff provisioning (no public admin sign-up) + stronger staff auth | implemented: audited CLI + admin API (create/status/roles), TOTP second factor with enforcement; UI Phase 11 | 4/5 |
 | A9 | Real email adapter | implemented (SMTP, tested against a local SMTP server); **real delivery unverified** (B4, L2) | 4, 14 |
 | A10 | Real GeezSMS adapter | blocked (official docs B1, account B3) | 14 |
-| A11 | Backend permission enforcement + cross-user tests | planned | 5 |
+| A11 | Backend permission enforcement + cross-user tests | implemented: fail-closed guard, matrix test (anonymous/rider/operator/admin × every staff route), tampering + cross-rider tests; must be extended for every new route | 5 |
 
 ## Wallet and payments (G)
 

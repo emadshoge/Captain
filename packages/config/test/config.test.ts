@@ -176,6 +176,16 @@ describe('Phase 4 authentication and browser settings', () => {
     expect(() => loadApiConfig({ ...PROD, AUTH_SECRET: 'short' })).toThrow(/AUTH_SECRET/);
   });
 
+  it('requires staff MFA in staging and production', () => {
+    expect(() => loadApiConfig({ ...PROD, STAFF_MFA_REQUIRED: 'false' })).toThrow(
+      /STAFF_MFA_REQUIRED/,
+    );
+    expect(
+      loadApiConfig({ APP_ENV: 'development', DATABASE_URL: DB, STAFF_MFA_REQUIRED: 'false' })
+        .STAFF_MFA_REQUIRED,
+    ).toBe(false);
+  });
+
   it('requires a real provider for every enabled rider channel in production', () => {
     expect(() => loadApiConfig({ ...PROD, AUTH_RIDER_CHANNELS: 'sms,email' })).toThrow(
       /sms channel/,
