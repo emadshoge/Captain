@@ -99,6 +99,8 @@ make them configurable and reference the ID.
 | R-84 | Financial and destructive staff actions (wallet adjustments, refund approval/completion, ride resolution, suspensions, staff status and authenticator resets, service lock/unlock) need an explicit confirmation tick in the UI plus a reason that the API audits. | 2026-10-04 | Master order L. |
 | R-85 | Incidents API (`/v1/operator/incidents`: list, report, take, resolve with resolution + note; audited). Handling an incident never sends a device command; money is settled only through ride review. | 2026-10-04 | Missing piece found while building the staff UI. |
 | R-86 | One E2E harness (`apps/rider-web/e2e/harness.ts`) serves both web apps; staff accounts are created through the staff CLI against the throwaway database. | 2026-10-04 | No duplicated orchestration. |
+| R-87 | `createPool` always attaches a pool `error` listener (API/worker log it). Idle connections dropped by the server are discarded and replaced instead of crashing the process. | 2026-10-04 | Found by the database drill (Phase 12). |
+| R-88 | Performance is measured with a reproducible script against built bundles and a throwaway database; results are recorded with the machine and workload, and acceptance thresholds apply to that test only. No capacity claims beyond what was measured. | 2026-10-04 | Master order: no unlimited-scale claims. |
 
 ## Unresolved (owner decisions required)
 

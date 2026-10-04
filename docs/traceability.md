@@ -26,8 +26,8 @@ Updated at the end of every phase.
 | F12 | Audit records for sensitive staff actions | `apps/api/src/lib/audit.ts` + staff/admin routes | `authz.test.ts` | implemented | append-only (DB) |
 | F13 | Reproducible cloud setup + PostgreSQL cluster | `scripts/*`, `.claude/` | manual runs (progress.md) | implemented | hook active once on `main` |
 | F14 | CI: format, lint, typecheck, tests (PG), builds, Expo checks | `.github/workflows/ci.yml` | CI runs | implemented | |
-| F15 | Browser E2E in CI | — | — | planned (Phase 10–11) | |
-| F16 | Performance test with measured results | — | — | planned (Phase 12) | |
+| F15 | Browser E2E in CI | `apps/rider-web/e2e`, `apps/staff-web/e2e` | CI `e2e` job | implemented | 10–11 |
+| F16 | Performance test with measured results | `apps/api/perf/load.ts`, `drills.ts` | CI `resilience` job; `docs/performance.md` | implemented + measured (simulated devices, dev container) | 12 |
 
 ## Data and integrity (master order E)
 

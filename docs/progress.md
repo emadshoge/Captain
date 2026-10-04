@@ -6,8 +6,8 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–11 (Phase 11 = staff web, admin and operator).
-- **Next phase:** Phase 12 — Performance and resilience testing
+- **Completed phases:** 0–12 (Phase 12 = performance and resilience).
+- **Next phase:** Phase 13 — Deployment preparation (staging deploy blocked)
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
@@ -15,10 +15,39 @@ was not tested, blockers, and the next task.
   Phase 6 `claude/phase-6-fleet` (PR #6); Phase 7 `claude/phase-7-wallet`
   (PR #7); Phase 8 `claude/phase-8-rides` (PR #8); Phase 9
   `claude/phase-9-mobile` (PR #9); Phase 10 `claude/phase-10-rider-web`
-  (PR #10); Phase 11 `claude/phase-11-staff-web` (stacked on Phase 10).
+  (PR #10); Phase 11 `claude/phase-11-staff-web` (PR #11); Phase 12
+  `claude/phase-12-performance` (stacked on Phase 11).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 12: Performance and resilience
+CI for Phase 11: run 37232482695 on `c6802c7`, all jobs passed (rider and
+staff E2E included).
+
+Changed:
+- `apps/api/perf/load.ts`: reproducible load test (built API + worker,
+  throwaway DB, PERF scooters, riders via the real OTP flow, scripted
+  gateway) with per-operation percentiles, ride lifecycle timings,
+  invariants and acceptance thresholds (R-88).
+- `apps/api/perf/drills.ts`: API SIGKILL mid-ride, silent device + worker
+  killed, database connections terminated, invariants.
+- Fix: pool `error` listener in `createPool` (R-87) + regression test.
+- CI job `resilience` (drills + 20 s load smoke).
+- `docs/performance.md` with measured results.
+
+Executed checks:
+- Full load run (300 scooters, 100 riders, 40 riding, 60 s): 0 unexpected
+  responses, 440 rides completed, all p95 within the test thresholds,
+  ledger balanced (details in `docs/performance.md`).
+- Drills 4/4 pass after the fix (the database drill crashed the API
+  process before it).
+- `pnpm check` green (db tests 30 incl. the pool test).
+
+Not verified: production-like infrastructure, real devices/providers,
+soak tests (see `docs/performance.md` → Not tested).
+
+Next: Phase 13 — deployment preparation (staging blocked on hosting).
 
 ### 2026-10-04 — Phase 11: Staff web (admin and operator)
 CI for Phase 10: run 37231219012 on `0162989`, all jobs passed (including

@@ -15,6 +15,8 @@ pg.types.setTypeParser(pg.types.builtins.INT8, (value: string) => {
 });
 
 export interface PoolOptions {
+  /** Called when an idle pooled connection fails (it is discarded and replaced). */
+  onIdleClientError?: (error: Error) => void;
   connectionString: string;
   /** Fail fast when the server is unreachable (readiness checks rely on it). */
   connectionTimeoutMillis?: number;
@@ -25,8 +27,15 @@ export function createPool({
   connectionString,
   connectionTimeoutMillis = 3_000,
   max = 10,
+  onIdleClientError,
 }: PoolOptions) {
-  return new pg.Pool({ connectionString, connectionTimeoutMillis, max });
+  const pool = new pg.Pool({ connectionString, connectionTimeoutMillis, max });
+  // An idle connection dropped by the server (restart, failover, admin
+  // termination) is emitted as a pool 'error'. Without a listener Node treats
+  // it as an unhandled error and the process exits. pg already discards the
+  // broken client; the pool reconnects on the next query.
+  pool.on('error', (error) => onIdleClientError?.(error));
+  return pool;
 }
 
 export function createDb(pool: pg.Pool) {

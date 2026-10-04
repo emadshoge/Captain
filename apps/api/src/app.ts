@@ -108,7 +108,12 @@ export async function buildApp({
   await app.register(fastifyCookie);
 
   const ownedPool = pool === undefined;
-  const dbPool = pool ?? createPool({ connectionString: config.DATABASE_URL });
+  const dbPool =
+    pool ??
+    createPool({
+      connectionString: config.DATABASE_URL,
+      onIdleClientError: (error) => app.log.warn({ err: error }, 'idle database connection lost'),
+    });
   if (ownedPool) app.addHook('onClose', async () => dbPool.end());
 
   const otpSenders = senders ?? createOtpSenders(config);
