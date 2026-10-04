@@ -34,6 +34,8 @@ describe('loadApiConfig', () => {
                 AUTH_SECRET: 's'.repeat(32),
                 INTERNAL_API_TOKEN: 'i'.repeat(32),
                 CORS_ORIGINS: 'https://staging.captain.et',
+                PUBLIC_API_URL: 'https://api.staging.captain.et',
+                RIDER_RETURN_URL: 'https://staging.captain.et/wallet',
               }
             : {}),
           APP_ENV,
@@ -54,6 +56,8 @@ const PROD = {
   DATABASE_URL: 'postgres://db.internal/captain',
   AUTH_SECRET: 'p'.repeat(40),
   INTERNAL_API_TOKEN: 'i'.repeat(40),
+  PUBLIC_API_URL: 'https://api.captain.et',
+  RIDER_RETURN_URL: 'https://app.captain.et/wallet',
   CORS_ORIGINS: 'https://app.captain.et,https://staff.captain.et',
   AUTH_RIDER_CHANNELS: 'email',
   OTP_EMAIL_PROVIDER: 'smtp',
@@ -235,6 +239,32 @@ describe('Phase 4 authentication and browser settings', () => {
     } catch (error) {
       expect((error as Error).message).not.toContain('smtp-secret-value');
     }
+  });
+});
+
+describe('Phase 7 payment settings', () => {
+  it('requires callback/return URLs when a provider is enabled in staging', () => {
+    const staging = {
+      ...PROD,
+      APP_ENV: 'staging',
+      PAYMENT_PROVIDER: 'fake',
+      PUBLIC_API_URL: undefined,
+    };
+    expect(() => loadApiConfig(staging)).toThrow(/PUBLIC_API_URL/);
+    expect(
+      loadApiConfig({
+        ...staging,
+        PUBLIC_API_URL: 'https://api.staging.captain.et',
+        RIDER_RETURN_URL: 'https://staging.captain.et/wallet',
+      }).PAYMENT_PROVIDER,
+    ).toBe('fake');
+  });
+
+  it('keeps maker-checker refunds mandatory in production and has no Chapa option yet', () => {
+    expect(() => loadApiConfig({ ...PROD, REFUNDS_REQUIRE_SECOND_APPROVER: 'false' })).toThrow(
+      /REFUNDS_REQUIRE_SECOND_APPROVER/,
+    );
+    expect(() => loadApiConfig({ ...PROD, PAYMENT_PROVIDER: 'chapa' })).toThrow(/PAYMENT_PROVIDER/);
   });
 });
 

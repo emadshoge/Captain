@@ -69,6 +69,13 @@ make them configurable and reference the ID.
 | R-54 | Telemetry validation: coordinate ranges, null island, lat/lng pairing, battery/speed ranges, clock skew (≤ 60 s ahead, ≤ 24 h old). Invalid reports are stored (for diagnosis) but never move a scooter; out-of-order reports never move it backwards. | 2026-10-04 | Untrusted device data. |
 | R-55 | Staff service lock/unlock require a confirmed stationary state (fresh telemetry with speed 0) and are refused for real supplier devices until a documented stationary check exists; service unlock also requires maintenance/charging status. Late unlock acks open an incident; nothing is sent automatically. | 2026-10-04 | Implements R-22/R-23. |
 | R-56 | Authorization hooks run at `onRequest` (before body parsing/validation). | 2026-10-04 | Unauthorized callers cannot probe schemas (found by tests). |
+| R-57 | Top-ups are credited only by server-side verification with the provider (verify-before-credit). Webhooks and rider "check" calls only trigger verification; redirects and client claims never credit. Provider calls happen outside database transactions; the outcome is applied under a row lock, and the ledger's unique `(reference_type, reference_id)` makes a second credit impossible. | 2026-10-04 | Master order G. |
+| R-58 | Any verified success whose reference, amount, currency or provider reference differs from what Captain created — or a success after a recorded failure — moves the payment to `review` with a critical alert; it is never credited automatically. | 2026-10-04 | Never accept an arbitrary provider reference. |
+| R-59 | Provider unreachable → payment stays pending (event `verify_unavailable`); the worker reconciles open/expired payments (≤ 7 days old). A late success on an expired payment is credited (`late_success`), because the rider's money has moved. | 2026-10-04 | Webhook loss tolerance. |
+| R-60 | Money-moving POSTs (top-up creation, staff adjustments) require an `Idempotency-Key`; replays return the stored response, reuse with a different body is refused (422). | 2026-10-04 | Safe client retries. |
+| R-61 | Staff adjustments require a reason, are audited and can never take a wallet below zero (row lock + funds check). Refunds are maker-checker (`REFUNDS_REQUIRE_SECOND_APPROVER`, default on): wallet refunds credit on approval; refunds to the original payment are debited only when finance records the provider reference (no automated provider refund until Chapa refund capability is verified). | 2026-10-04 | Partial resolution of D-REFUND mechanics; business rules still open. |
+| R-62 | A `fake` payment provider exists for development/test only (labelled SIMULATED in journal descriptions, refused by the production config guard); worker reconciliation skips it because its state is per-process. | 2026-10-04 | Never fake payments in production. |
+| R-63 | PostgreSQL `int8` values are parsed to JS numbers globally and throw beyond `Number.MAX_SAFE_INTEGER`. | 2026-10-04 | Santim amounts compared reliably. |
 
 ## Unresolved (owner decisions required)
 
@@ -86,10 +93,11 @@ make them configurable and reference the ID.
 | D-ROUND | Billing rounding (per started minute vs per second) and pause charge. | Phase 8 | `billing_increment_seconds`, `pause_per_minute_santim` per plan. |
 | D-RESERVE | Reservations: allowed? window? fee? | Phase 8 | `reservation_minutes`/`reservation_fee_santim` per plan (null = off). |
 | D-MAXRIDE | Maximum ride duration and action at the limit. | Phase 8 | `max_ride_minutes`; alert/notify only, never hardware action. |
+| D-TOPMAX | Maximum single top-up / wallet balance limits (regulatory?). | Phase 7 | `TOPUP_MAX_SANTIM` optional, unset = no limit. |
 | D-UNPAID | Negative balances / unpaid debt handling and collection. | Phase 8 | `low_balance_floor_santim`; start blocked while balance below minimum. |
 | D-LEGAL | Approved terms, privacy, support wording and translations. | Phase 9–11, launch | Placeholders marked DRAFT – NOT APPROVED. |
 | D-DNS | Confirm captain.et ownership and DNS access. | Phase 13 | Instructions prepared; not applied. |
-| D-REFUND | Refund rules: failed unlock, device faults, completion failures, operator-review outcomes, disputes; refund to wallet vs to original payment; approval workflow. | Phase 10 / admin | Admin adjustments with reason only; maker-checker recommended. |
+| D-REFUND | Refund rules (mechanics implemented per R-61; policy still open): failed unlock, device faults, completion failures, operator-review outcomes, disputes; refund to wallet vs to original payment; approval workflow. | Phase 10 / admin | Admin adjustments with reason only; maker-checker recommended. |
 | D-ELIG | Rider eligibility: minimum age, ID verification, terms. | Phase 4 | `eligibility_status` field reserved. |
 | D-UI | Brand colors, logo, app icon, splash, typography. | Phase 11 (mobile UI) | Neutral placeholder theme tokens. |
 | D-HOST | Hosting provider for staging/production API, DB, web apps. | Phase 15 (staging) | Must offer managed PG 16 and region suitable for Ethiopia latency. |

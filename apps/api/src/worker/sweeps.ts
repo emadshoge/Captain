@@ -2,11 +2,15 @@ import type { ApiConfig } from '@captain/config';
 import type pg from 'pg';
 import { type CommandListener, type CommandRow, openAlert } from '../fleet/service';
 import { withTransaction } from '../lib/db';
+import { reconcilePayments } from '../wallet/payments';
+import type { PaymentProvider } from '../wallet/providers';
 
 export interface SweepDeps {
   config: ApiConfig;
   pool: pg.Pool;
   now: () => Date;
+  /** Payment provider for reconciliation (absent or fake = skipped). */
+  provider?: PaymentProvider | null;
 }
 
 export type Sweep = (deps: SweepDeps) => Promise<number>;
@@ -123,7 +127,22 @@ export const sweepPurge: Sweep = async ({ pool, now }) => {
   return removed;
 };
 
+/**
+ * Re-verifies payments whose webhook may have been lost. The fake provider
+ * keeps state in its own process, so it is never reconciled from the worker.
+ */
+export const sweepPaymentReconciliation: Sweep = async (deps) => {
+  if (!deps.provider || deps.provider.name === 'fake') return 0;
+  return reconcilePayments({
+    config: deps.config,
+    pool: deps.pool,
+    now: deps.now,
+    provider: deps.provider,
+  });
+};
+
 export const SWEEPS: Record<string, Sweep> = {
+  paymentReconciliation: sweepPaymentReconciliation,
   commandTimeouts: sweepCommandTimeouts,
   offlineDevices: sweepOfflineDevices,
   staleTelemetry: sweepStaleTelemetry,

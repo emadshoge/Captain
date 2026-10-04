@@ -94,6 +94,18 @@ const apiBaseSchema = baseSchema
     /** Staff must verify a TOTP second factor before using staff APIs. Must be true in staging/production. */
     STAFF_MFA_REQUIRED: bool.default(true),
 
+    // Payments (Phase 7). Chapa is not selectable until its official docs are reviewed (T-01).
+    /** Operational safety cap per top-up (not a business limit; provider limits also apply). Unset = none. */
+    TOPUP_MAX_SANTIM: z.coerce.number().int().positive().optional(),
+    /** Unverified top-ups expire after this long (late provider success is still credited). */
+    PAYMENT_EXPIRY_MINUTES: int(5, 1_440).default(60),
+    /** Public base URL of this API (provider callbacks/webhooks). */
+    PUBLIC_API_URL: z.url().optional(),
+    /** Where riders return after checkout. */
+    RIDER_RETURN_URL: z.url().optional(),
+    /** Maker-checker: a refund must be approved by a different staff member. */
+    REFUNDS_REQUIRE_SECOND_APPROVER: bool.default(true),
+
     // Browser security
     /** Exact origins allowed by CORS (comma-separated). Required in staging/production. */
     CORS_ORIGINS: csvUrls.optional(),
@@ -129,6 +141,14 @@ export const apiEnvSchema = apiBaseSchema
       issue('COOKIE_SECURE', 'must be true in staging/production');
     if (deployed && !config.SMTP_REQUIRE_TLS)
       issue('SMTP_REQUIRE_TLS', 'must be true in staging/production');
+    if (deployed && config.PAYMENT_PROVIDER !== 'none') {
+      if (!config.PUBLIC_API_URL)
+        issue('PUBLIC_API_URL', 'required when a payment provider is enabled');
+      if (!config.RIDER_RETURN_URL)
+        issue('RIDER_RETURN_URL', 'required when a payment provider is enabled');
+    }
+    if (deployed && !config.REFUNDS_REQUIRE_SECOND_APPROVER)
+      issue('REFUNDS_REQUIRE_SECOND_APPROVER', 'must be true in staging/production');
     if (deployed && !config.STAFF_MFA_REQUIRED)
       issue('STAFF_MFA_REQUIRED', 'must be true in staging/production');
     if (config.OTP_EMAIL_PROVIDER === 'smtp') {

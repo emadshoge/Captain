@@ -6,16 +6,59 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–6 (Phase 6 = fleet, zones, devices, simulator).
-- **Next phase:** Phase 7 — Wallet ledger and payments
+- **Completed phases:** 0–7 (Phase 7 = wallet ledger and payments core; Chapa blocked).
+- **Next phase:** Phase 8 — Pricing and ride engine
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
   `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (PR #5);
-  Phase 6 `claude/phase-6-fleet` (stacked on Phase 5).
+  Phase 6 `claude/phase-6-fleet` (PR #6); Phase 7 `claude/phase-7-wallet`
+  (stacked on Phase 6).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 7: Wallet ledger and payments core
+CI for Phase 6: run 37213641195 on `921d96c`, both jobs passed.
+
+Changed:
+- Ledger helpers: balanced journal posting (idempotent per reference),
+  wallet row locks, balance/held/available figures, funds checks.
+- `PaymentProvider` port (initialize / verify / parseWebhook) and a
+  **simulated** `FakePaymentProvider` (dev/test only, R-62). **No Chapa
+  adapter** — blocked (T-01, B1, B2).
+- Payments: top-up creation (≥ 500 ETB, optional max, unguessable
+  reference, expiry), `processPayment` verify-before-credit with
+  exactly-once credit, review on mismatch, pending on provider outage,
+  expiry and late success (R-57–R-59); worker reconciliation sweep.
+- Rider API: wallet, transactions, top-up create (Idempotency-Key,
+  rate limit), status, check. Webhook endpoint with raw-body signature
+  check and event dedupe. Dev-only fake checkout page.
+- Staff API (payments.read / wallet.adjust / refunds.*): payment list,
+  detail with events, re-verify, bounded CSV export (formula-safe),
+  rider wallet view, audited adjustments, maker-checker refunds (R-61).
+- Migration 0004 adds the `payment_review` alert kind; global int8
+  parsing (R-63).
+
+Executed checks:
+- `pnpm check` green: API tests 124 (24 new wallet tests), db 29,
+  config 41, gateway 11, domain 33. Schema drift check clean.
+- Wallet tests cover: minimum/validation, no provider → 503,
+  idempotency replay and reuse, signed webhook credit once, replayed and
+  re-sent events, webhook/redirect claims never credit, invalid
+  signature 401 + recorded, tampered amount / currency / reference →
+  review + alert, provider outage → pending then reconciled, expiry and
+  late success, failure then success → review, 10 concurrent processors
+  → one journal, rollback on DB failure, cross-rider 404, dev checkout,
+  adjustments never below zero under concurrency, maker-checker refunds,
+  original-payment refund completion, operator 403 matrix, CSV formula
+  injection and range bound, ledger sums to zero.
+
+Not verified / simulated:
+- All payments are **simulated**; Chapa endpoints, signing and refunds
+  are unverified (docs blocked). No real money moved.
+
+Next: Phase 8 — pricing plans and ride engine.
 
 ### 2026-10-04 — Phase 6: Fleet, zones, devices and the simulator
 CI for Phase 5: run 37212735971 on `f926445`, both jobs passed.
