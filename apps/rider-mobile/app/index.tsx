@@ -1,15 +1,16 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import { Body, Screen } from '../src/components/ui';
+import { t } from '../src/i18n';
+import { useSession } from '../src/session/SessionContext';
 
-export default function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Captain</Text>
-      <Text>Rider app skeleton. Features arrive in later phases.</Text>
-    </View>
-  );
+export default function Index() {
+  const { status } = useSession();
+  if (status === 'loading') {
+    return (
+      <Screen>
+        <Body muted>{t('common.loading')}</Body>
+      </Screen>
+    );
+  }
+  return <Redirect href={status === 'signedIn' ? '/(tabs)' : '/sign-in'} />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  title: { fontSize: 28, fontWeight: '600', marginBottom: 8 },
-});

@@ -6,17 +6,60 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–8 (Phase 8 = pricing and ride engine, simulated devices).
-- **Next phase:** Phase 9 — Rider mobile app and EAS configuration
+- **Completed phases:** 0–9 (Phase 9 = rider mobile app; native builds not run).
+- **Next phase:** Phase 10 — Rider web app
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
   `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (PR #5);
   Phase 6 `claude/phase-6-fleet` (PR #6); Phase 7 `claude/phase-7-wallet`
-  (PR #7); Phase 8 `claude/phase-8-rides` (stacked on Phase 7).
+  (PR #7); Phase 8 `claude/phase-8-rides` (PR #8); Phase 9
+  `claude/phase-9-mobile` (stacked on Phase 8).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 9: Rider mobile app and EAS configuration
+CI for Phase 8: run 37229454474 on `d7feaab`, both jobs passed.
+
+Changed (`apps/rider-mobile`):
+- API client with typed contracts (type-only), refresh rotation shared by
+  concurrent requests, Idempotency-Key support, stable error mapping.
+- SecureStore token storage (R-73); session context.
+- Screens (expo-router): sign-in (SMS/email code), home (current ride,
+  nearby list — map blocked, R-75), scan (QR via expo-camera + manual
+  code, availability reasons, price confirmation), ride (polling, timer,
+  estimate, pause/resume/end with location), wallet (balance, top-up via
+  in-app browser, server verification only, R-74), history and receipt,
+  account (sign out, environment label). SIMULATED / test-pricing labels.
+- i18n scaffolding (English only; D-L10N), provisional theme tokens
+  (D-UI), deep link scheme `captain://` (`wallet-return`).
+- `app.json`: permissions text (camera, when-in-use location), microphone
+  and background location blocked, plugins; `eas.json` profiles (R-77);
+  `expo-dev-client` for development builds.
+- Jest (jest-expo) with 24 tests: client refresh single-flight, sign-out
+  on refresh failure, idempotency header, error envelope, network errors,
+  token storage only after verification; formatting/QR parsing; ride
+  model; components: RideCard, Receipt, SignIn flow, Scan flow (start
+  with key, unavailable reason, balance error), Wallet (server-verified
+  status only, minimum).
+
+Executed checks:
+- `pnpm check` green (includes the mobile jest suite and Expo config +
+  Android/iOS JS bundle export). Lint/typecheck clean.
+- `expo-doctor` locally: 19/21 — the two failures are network-blocked
+  remote checks (schema fetch and React Native Directory: "Host not in
+  allowlist"); CI runs them with network access.
+
+Not verified:
+- **No native build** has been produced; EAS access is unverified (B9).
+  The JS bundle export is not a native build.
+- Not run on a device/emulator; camera, location and SecureStore were
+  exercised only through mocks.
+- Map (Mapbox) blocked (B1, B5); payment checkout is the simulated
+  provider in development.
+
+Next: Phase 10 — rider web app with Playwright.
 
 ### 2026-10-04 — Phase 8: Pricing and ride engine
 CI for Phase 7: run 37214437782 on `26afeb6`, both jobs passed.

@@ -3,16 +3,48 @@
     "name": "Captain",
     "slug": "captain",
     "scheme": "captain",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "platforms": ["android", "ios"],
-    "plugins": ["expo-router"],
+    "runtimeVersion": { "policy": "appVersion" },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Captain uses the camera to scan the QR code on a scooter.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Captain uses your location to show scooters near you and to check where you park."
+        }
+      ],
+      ["expo-secure-store", { "configureAndroidBackup": true }]
+    ],
     "ios": {
-      "bundleIdentifier": "et.captain.rider"
+      "bundleIdentifier": "et.captain.rider",
+      "supportsTablet": false,
+      "config": { "usesNonExemptEncryption": false }
     },
     "android": {
-      "package": "et.captain.rider"
-    }
+      "package": "et.captain.rider",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
+      ]
+    },
+    "experiments": { "typedRoutes": false }
   }
 }

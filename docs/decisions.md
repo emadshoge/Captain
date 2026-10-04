@@ -85,6 +85,11 @@ make them configurable and reference the ID.
 | R-70 | Low balance and maximum duration during a ride produce alerts only — never hardware actions. | 2026-10-04 | D-LOWBAL / D-MAXRIDE; R-23. |
 | R-71 | Operators (rides.review) can send open rides to review and resolve them as `complete` (chosen billing cutoff between start and now) or `complete_no_charge`; both audited. Recovery sweep moves rides stuck in `end_requested` to review and re-applies already-resolved commands. | 2026-10-04 | Disconnect/restart recovery. |
 | R-72 | Reservations exist only when the active plan defines `reservation_minutes`; the fee (if any) is charged at reservation; expiry/cancel frees the scooter (no fee refund — D-RESERVE open). Pricing plans: admins create drafts and activate them (previous plan retired atomically); development fixture pricing is refused for rides in production. | 2026-10-04 | Versioned pricing. |
+| R-73 | Rider mobile: tokens only in SecureStore (keychain/keystore, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`); one shared refresh for concurrent 401s; local sign-out when refresh fails. API shapes come from `@captain/contracts` as type-only imports. | 2026-10-04 | Phase 9. |
+| R-74 | Mobile money/ride actions send an `Idempotency-Key` per user action (reused on retry). After checkout the app only calls the server's verify endpoint and shows the server's answer; the return from the browser never changes the balance. | 2026-10-04 | R-57. |
+| R-75 | Until Mapbox is available (token + docs, B1/B5) the home screen lists nearby scooters instead of a map; `@rnmapbox/maps` is not added yet. | 2026-10-04 | No map SDK integration without docs/token. |
+| R-76 | Mobile tests: jest-expo 57 + React Native Testing Library 13 (jest 29, as required by jest-expo). | 2026-10-04 | Component tests without emulators. |
+| R-77 | EAS profiles: `development` (dev client, internal), `preview` (internal APK, staging), `production` (store, remote auto-increment). `EXPO_PUBLIC_API_URL` per profile is set in EAS environment variables once staging/production hosts exist (D-HOST). Microphone and background location are blocked permissions. | 2026-10-04 | Phase 9 EAS config; builds not run (B9). |
 
 ## Unresolved (owner decisions required)
 
