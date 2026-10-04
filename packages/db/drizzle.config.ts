@@ -4,6 +4,6 @@ import { defineConfig } from 'drizzle-kit';
 // migration history on disk. It never connects to a database.
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/schema.ts',
+  schema: './src/schema/index.ts',
   out: './migrations',
 });

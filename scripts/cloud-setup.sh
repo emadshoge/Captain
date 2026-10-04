@@ -3,7 +3,7 @@
 #   1. verify Node.js and pnpm versions
 #   2. install dependencies exactly from pnpm-lock.yaml
 #   3. start the isolated local PostgreSQL 16 cluster and wait until ready
-#   4. apply migrations to the LOCAL development database only
+#   4. apply migrations + labelled dev fixtures to the LOCAL development database only
 #   5. export session variables (when run from the SessionStart hook)
 # Idempotent: re-running reuses the cluster and installed packages.
 # Never seeds, resets or migrates any non-local database.
@@ -57,6 +57,10 @@ run_step "migrate local development database"
 # Built from the local cluster's settings, never from an inherited DATABASE_URL.
 local_db_url="$(bash scripts/db-local.sh env | sed -n 's/^DATABASE_URL=//p')"
 APP_ENV=development DATABASE_URL="$local_db_url" pnpm --silent --filter @captain/db run db:migrate
+
+run_step "load development fixtures (local dev database only)"
+# Labelled DEV FIXTURE data + simulated scooters; refuses non-development envs.
+APP_ENV=development DATABASE_URL="$local_db_url" pnpm --silent --filter @captain/db run db:fixtures
 
 run_step "export session environment"
 if [[ -n "${CLAUDE_ENV_FILE:-}" ]]; then

@@ -12,6 +12,9 @@ Read these before starting any task:
 - `docs/implementation-plan.md` — phases and acceptance criteria
 - `docs/decisions.md` — resolved and **unresolved** decisions
 - `docs/progress.md` — current state, blockers, untested behavior
+- `docs/traceability.md` — requirement → code → tests → status
+- `docs/user-actions.md` — what the owner must do (accounts, decisions)
+- `docs/launch-checklist.md` — evidence required before public launch
 
 ## Working environment
 
@@ -32,10 +35,13 @@ Read these before starting any task:
 
 ## Task rules
 
-1. **One implementation phase per task.** Do the phase named in the task
-   (from `docs/implementation-plan.md`) and nothing beyond it. If something
-   outside the phase is needed, record it in `docs/progress.md` instead of
-   building it.
+1. **One phase at a time.** Implement and verify one phase from
+   `docs/implementation-plan.md` before starting the next. A single task
+   (for example a master work order) may complete several phases
+   *sequentially*. Each phase gets its own commit(s), checks, progress
+   entry, and (stacked) branch/PR before the next begins. Do not mix work
+   from a later phase into an earlier one. Record out-of-phase needs in
+   `docs/progress.md`.
 2. **Meaningful checks before declaring a phase complete.** Run the
    repository checks (format, lint, typecheck, tests, build — whatever the
    phase's acceptance criteria list) and confirm each acceptance criterion
@@ -54,6 +60,15 @@ Read these before starting any task:
 6. **No production deployment during development tasks.** Never deploy to
    production, run production migrations, or use production credentials.
    Staging deploys only when the phase explicitly calls for it.
+
+## Status vocabulary (use it exactly)
+
+- **Implemented**: code exists and automated tests pass.
+- **Simulated**: works only against a fake/simulated provider or device.
+- **Blocked**: needs an external input (docs, account, decision, hardware).
+- **Verified**: confirmed with real evidence (real OTP received, real
+  payment credited once, real scooter unlocked…). Compiling, mock tests
+  and inaccessible documentation are never verification.
 
 ## Product safety rules (non-negotiable)
 
@@ -93,6 +108,10 @@ Read these before starting any task:
   headers, and never pass secrets to a log call. Redaction is a safety net,
   not permission. Throw `AppError` for client-safe errors; anything else
   becomes a generic 500.
+- Schema changes: edit `packages/db/src/schema/*`, run
+  `pnpm --filter @captain/db db:generate`, commit the SQL. A migration
+  that adds a history table must add append-only triggers and
+  `REVOKE UPDATE, DELETE ... FROM captain_app`.
 - Shared request/response schemas live in `packages/contracts` (Zod) and
   are the single source of truth for API shapes.
 - Commit messages: imperative mood, describe the phase and change.

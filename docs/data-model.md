@@ -1,194 +1,106 @@
 # Captain — Data Model
 
-Status: Phase 0 logical model. Physical schema (Drizzle + SQL migrations)
-is created in the database phase. PostgreSQL 16.
+Status: **implemented in Phase 3** (migrations `0000`–`0002`). Source of
+truth: `packages/db/src/schema/*.ts` (tables, constraints, indexes) and
+`packages/db/migrations/0002_db_rules.sql` (triggers, grants, reference
+data). PostgreSQL 16. Items marked **[OPEN Dxx]** depend on unresolved
+decisions in `docs/decisions.md`.
 
-Conventions:
-- Primary keys: `uuid` (v7 generated in app, sortable).
-- Timestamps: `timestamptz`, UTC. `created_at`, `updated_at` on mutable rows.
-- Money: `bigint` **santim** (1 ETB = 100 santim), column suffix `_santim`.
-- Enums: PostgreSQL enums or `text` + CHECK (decide in DB phase).
-- Append-only tables (ledger, events, audit) have no UPDATE/DELETE grants
-  for the application role.
+## Conventions
 
-## Entity relationship overview
+- Primary keys: `uuid` (`gen_random_uuid()`); high-volume history tables use `bigserial`.
+- Timestamps: `timestamptz` (UTC). Displayed in `Africa/Addis_Ababa`
+  (`@captain/domain` `formatEthiopiaDateTime`).
+- Money: `bigint` **santim** columns named `*_santim`, plus a `currency`
+  column (`CHECK currency = 'ETB'`). Arithmetic uses integers only
+  (`@captain/domain`).
+- Coordinates: WGS84 `double precision` with range checks. Lat/lng are
+  stored as a pair or not at all.
+- Rules that matter for money, safety or audit are enforced **in the
+  database**: constraints, triggers and grants. Application code is not
+  trusted to enforce them alone.
 
-```
-riders 1─* rider_identities           staff_users *─* roles (via staff_roles)
-riders 1─* auth_sessions              staff_users 1─* auth_sessions
-riders 1─1 ledger_accounts(rider_wallet)
-riders 1─* payments 1─* payment_events
-riders 1─* rides 1─* ride_events
-rides  *─1 scooters 1─1 devices 1─* device_commands
-                         devices 1─* device_telemetry
-rides  1─0..1 ledger_transactions (charge)
-rides  1─* ride_incidents (operator review)
-ledger_transactions 1─* ledger_entries *─1 ledger_accounts
-riders 1─* wallet_holds *─0..1 rides
-pricing_plans 1─* rides (plan snapshot copied onto ride)
-zones (service / parking / no-parking)       audit_log (all staff actions)
-otp_challenges   idempotency_keys   support_tickets
-```
+## Tables by area
 
-## Identity and access
+### Identity and access (`schema/identity.ts`)
+| Table | Purpose | Key rules |
+|---|---|---|
+| `riders` | Rider account, status (`active/suspended/deletion_requested/deleted`), language, terms + age attestation | |
+| `rider_contacts` | Verified email/phone per rider | unique `(kind,value)`; one per kind per rider; email lower-case; phone E.164 |
+| `staff_users` | Staff accounts (separate from riders) | unique lower-case email |
+| `roles`, `permissions`, `role_permissions`, `staff_roles` | RBAC | seeded `admin` (all permissions) and `operator` (fleet/maintenance/incidents/ride review only) |
+| `otp_challenges` | OTP challenges, **hashed code**, attempts ≤ max, expiry, provider used | |
+| `auth_sessions` | Session per sign-in (`mobile`/`web`), expiry, revocation | exactly one subject (rider xor staff) |
+| `session_tokens` | Hashed opaque access/refresh tokens; refresh `used_at` for reuse detection | |
+| `rate_limit_buckets` | Fixed-window counters (PostgreSQL-backed; no Redis) | |
 
-### riders
-`id`, `display_name`, `status` (`active|suspended|deleted`),
-`eligibility_status` (**[OPEN D-ELIG]**), `terms_accepted_version`,
-`terms_accepted_at`, `created_at`.
+### Fleet and zones (`schema/fleet.ts`)
+| Table | Purpose | Key rules |
+|---|---|---|
+| `scooters` | Code (printed), QR token, status, battery, last location/telemetry, `version` | code format `^[A-Z0-9-]{3,16}$`; battery 0–100; lat/lng ranges + pair |
+| `devices` | IoT module, adapter `simulated/supplier_tcp`, `is_simulated`, online/last seen | `is_simulated = (adapter='simulated')`; both **immutable** (trigger) |
+| `device_assignments` | Device ↔ scooter history | one active assignment per device and per scooter |
+| `maintenance_records` | Inspections, repairs, battery swaps, repositioning tasks | |
+| `zones` | GeoJSON polygon + bbox; `service_area/parking/no_parking/restricted/slow`; `is_dev_fixture` | bbox ordered and in range **[OPEN D-ZONES]** |
+| `device_telemetry` | Location/battery/speed/locked + validity flag, `is_simulated`, raw payload | ranges; indexed by device + time |
 
-### rider_identities
-`id`, `rider_id → riders`, `type` (`phone|email`), `value` (E.164 or
-lower-cased email), `verified_at`. Unique `(type, value)`.
-Supports either primary login method (**[OPEN D-LOGIN]**).
+### Pricing, reservations, rides, commands (`schema/rides.ts`)
+| Table | Purpose | Key rules |
+|---|---|---|
+| `pricing_plans` | Versioned pricing: unlock fee, per-minute, billing increment (rounding), pause rate/limit, min start balance, hold, reservation window/fee, max ride minutes, low-balance floor, `is_dev_fixture` | one `active` plan; **numbers immutable after draft**; transitions draft→active→retired only; amounts ≥ 0; floor ≤ 0 **[OPEN D-PRICE, D-ROUND, D-MINBAL, D-RESERVE, D-PAUSE, D-MAXRIDE, D-LOWBAL]** |
+| `reservations` | Active/expired/cancelled/converted holds on a scooter | one active per rider and per scooter |
+| `rides` | Status (`start_requested, unlock_pending, active, paused, end_requested, completion_pending, completed, start_failed, operator_review`), pricing snapshot, timestamps (request, unlock confirmed, end requested + location, completion confirmed + source, billing cutoff, completed), pause accounting, parking status, fare | one **open** ride per rider and per scooter (`operator_review` counts as open); identity + snapshot immutable; terminal states final; `completed` requires `completed_at` and fare; no deletes |
+| `ride_events` | Every transition with cause/actor/command | append-only |
+| `device_commands` | Internal intents (`unlock/lock/locate` — **not** supplier codes), status, deadline, issuer, reason, `is_simulated` | |
+| `device_command_acks` | Every ack/nack incl. late and duplicate | append-only |
 
-### staff_users
-`id`, `email` (unique), `name`, `status`, `created_at`. Separate table from
-riders — no shared login.
+### Money (`schema/money.ts`)
+| Table | Purpose | Key rules |
+|---|---|---|
+| `ledger_accounts` | Rider wallets + system accounts (`provider_clearing, ride_revenue, reservation_revenue, refunds, adjustments`) | one wallet per rider; one system account per type; unique `(id,currency)` |
+| `journal_entries` | Balanced set of lines; kind, reference, reverses | unique `(reference_type, reference_id, kind)` (idempotency); **append-only** |
+| `ledger_lines` | Signed santim amounts | non-zero; currency must equal account currency (composite FK); **sum per journal = 0 and ≥ 2 lines** (deferred constraint trigger); **append-only** incl. TRUNCATE |
+| `wallet_holds` | Reserved funds (affects *available* balance) | positive; one active hold per ride |
+| `payment_attempts` | Top-ups: unique `tx_ref`, amount ≥ 50 000 santim, status, verified amount/currency, journal | `succeeded` requires a journal and `verified_at`; one payment per journal |
+| `payment_events` | Raw webhook/verify/reconcile records | dedupe key unique per provider; raw fields immutable; no deletes |
+| `refunds` | Refund requests and decisions with reasons | positive; reason required **[OPEN D-REFUND]** |
+| `wallet_adjustments` | Staff adjustments (signed) with reason + journal | non-zero; reason required |
 
-### roles / staff_roles
-`roles`: `operator`, `admin` (seeded). `staff_roles(staff_user_id, role)`.
-Permission checks map roles → capabilities in code (`packages/domain`).
+Balances: **ledger balance** = sum of wallet lines; **held** = sum of
+active holds; **available** = ledger − held (Phase 7).
 
-### otp_challenges
-`id`, `channel` (`email|sms`), `destination`, `purpose`
-(`rider_login|staff_login`), `code_hash`, `expires_at`, `attempts`,
-`consumed_at`, `provider` (records `geezsms`, `email:<name>`, or `log_only`).
+### Operations (`schema/ops.ts`)
+| Table | Purpose | Key rules |
+|---|---|---|
+| `incidents` | Ride/device incidents and rider support reports, assignment, resolution | opening one never sends a device command |
+| `operational_alerts` | Low battery, offline, stale/invalid telemetry, command timeout, max duration, low balance | one unresolved alert per dedupe key |
+| `audit_log` | Sensitive staff/system actions with before/after, reason, request ID | append-only incl. TRUNCATE |
+| `idempotency_keys` | Stored responses for retried POSTs | PK `(subject, endpoint, key)` |
+| `app_settings` | Key/value settings not tied to pricing | key format |
 
-### auth_sessions
-`id`, `subject_type` (`rider|staff`), `subject_id`, `refresh_token_hash`,
-`expires_at`, `revoked_at`, `user_agent`, `ip`.
+## Database roles
 
-## Fleet and devices
+- **Migration owner**: the role that runs `db:migrate`. It owns the
+  schema and runs DDL.
+- **`captain_app`** is a NOLOGIN group role created by migration `0002`
+  (or by a DB admin beforehand, where the migration owner lacks
+  CREATEROLE). Runtime logins (API, worker) are granted membership.
+  - **Granted:** DML on ordinary tables, `INSERT`/`SELECT` only on history
+    tables, read access to migration status.
+  - **Not granted:** DDL, reference-data writes, or deletes of rides,
+    pricing and payment events.
+  - **New tables:** default privileges give them DML. Migrations that add
+    history tables must `REVOKE UPDATE, DELETE`.
+- Append-only triggers also bind the migration owner.
 
-### scooters
-`id`, `code` (short human code printed with the QR, unique), `qr_payload`
-(unique), `status` (`available|reserved|in_ride|maintenance|charging|missing|retired`),
-`battery_percent`, `last_location` (lat/lng; PostGIS `geography(Point)` if
-adopted), `last_location_at`, `model`.
+## Development fixtures
 
-### devices
-`id`, `scooter_id → scooters` (unique, nullable while unbound),
-`supplier_device_id` (identifier format from supplier docs, unique),
-`adapter` (`simulated|supplier_tcp`), `is_simulated` (boolean, immutable,
-CHECK `is_simulated = (adapter = 'simulated')`), `firmware_version`,
-`online`, `last_seen_at`.
+`pnpm --filter @captain/db db:fixtures` (also run by `cloud-setup.sh` on
+the local dev DB) loads:
+- 12 **simulated** scooters/devices (`DEV-0001`…);
+- 4 zones in central Addis Ababa;
+- a pricing plan.
 
-### device_commands
-`id`, `device_id`, `ride_id?`, `type` (internal enum; mapping to supplier
-commands only from supplier docs), `status`
-(`queued|sent|acked|nacked|timed_out|failed`), `issued_by_type`
-(`system|staff`), `issued_by_id?`, `attempt`, `created_at`, `sent_at`,
-`deadline_at`, `acked_at`, `result_code`, `result_payload` (jsonb).
-
-### device_telemetry
-`id`, `device_id`, `received_at`, `location`, `battery_percent`,
-`locked` (nullable), `raw` (jsonb, adapter-specific). High volume →
-consider partitioning by month; retention policy TBD.
-
-## Rides
-
-### rides
-`id`, `rider_id`, `scooter_id`, `device_id`, `status`
-(`unlock_pending|unlock_failed|active|paused|end_requested|completion_pending|completed|operator_review`),
-`pricing_snapshot` (jsonb copy of plan at start), `requested_at`,
-`started_at` (unlock ack), `end_requested_at` + `end_request_location`
-(rider tapped "End ride"), `completion_confirmed_at` (device or operator
-confirmation), `completion_source` (`device|operator`),
-`billing_cutoff_at` (set by the D-BILLCUT policy; nullable until
-completed), `completed_at`, `start_location`, `end_location`,
-`parking_status` (`ok|outside|unknown|not_checked`, D-PARK),
-`duration_seconds`, `fare_santim`, `charge_ledger_tx_id?`,
-`failure_reason?`.
-
-Constraints:
-- Partial unique index: one ride per `rider_id` where status not in
-  (`completed`, `unlock_failed`). A ride in `operator_review` still blocks
-  a new ride for that rider and scooter until resolved (whether the rider
-  may start another ride meanwhile is part of D-ENDCONF).
-- Partial unique index: one ride per `scooter_id` with same condition.
-
-### ride_events
-`id`, `ride_id`, `from_status`, `to_status`, `cause`
-(`rider|device_ack|timeout|operator|system`), `actor_id?`,
-`device_command_id?`, `created_at`, `data` (jsonb). Append-only.
-
-### ride_incidents
-`id`, `ride_id?`, `device_id?`, `type`
-(`late_unlock_ack|completion_timeout|completion_nack|telemetry_mismatch|parking_dispute|other`),
-`status` (`open|in_progress|resolved`), `opened_at`, `opened_by`
-(`system|staff`), `assigned_staff_id?`, `resolution`
-(`completed_confirmed|completed_adjusted|cancelled_no_charge|other`),
-`resolution_note`, `resolved_by?`, `resolved_at?`, `is_simulated`
-(copied from the device). Opening an incident never sends a device
-command automatically.
-
-### pricing_plans
-`id`, `name`, `unlock_fee_santim`, `per_minute_santim`,
-`min_start_balance_santim`, `pause_per_minute_santim?`, `active_from`,
-`active_to`, `created_by`. Values are **[OPEN D-PRICE / D-MINBAL /
-D-PAUSE]** — no defaults committed for production.
-
-### zones
-`id`, `name`, `type` (`service|parking|no_parking|slow`), `geometry`
-(GeoJSON polygon; PostGIS if adopted), `active`. **[OPEN D-ZONES]**
-
-## Wallet and payments
-
-### ledger_accounts
-`id`, `type` (`rider_wallet|chapa_clearing|ride_revenue|refunds_expense|adjustments`),
-`rider_id?` (unique for `rider_wallet`), `currency` (`ETB`, CHECK).
-Rider wallet row is the lock target (`SELECT … FOR UPDATE`).
-
-### ledger_transactions
-`id`, `kind` (`topup|ride_charge|refund|adjustment|reversal`),
-`source_type`, `source_id`, `created_at`, `created_by_type`,
-`created_by_id?`, `memo`. Unique `(source_type, source_id, kind)` for
-idempotency. Append-only.
-
-### ledger_entries
-`id`, `ledger_transaction_id`, `ledger_account_id`, `amount_santim`
-(signed; + credit to account balance, − debit). Sum per transaction = 0
-(enforced by deferred constraint trigger). Append-only.
-
-### wallet_holds
-`id`, `rider_id`, `ride_id?`, `amount_santim`, `status`
-(`active|released|captured`), `created_at`, `released_at`.
-Used only if the hold policy requires (**[OPEN D-MINBAL / D-LOWBAL]**).
-
-### payments
-`id`, `rider_id`, `provider` (`chapa|fake`), `tx_ref` (unique),
-`amount_santim` (CHECK ≥ 50 000), `currency` (`ETB`), `status`
-(`pending|succeeded|failed|expired|review`), `checkout_url`,
-`provider_reference?`, `verified_at?`, `ledger_tx_id?`, `created_at`.
-`provider = 'fake'` rows are rejected in production by config guard and a
-DB CHECK tied to a settings row is considered in the DB phase.
-
-### payment_events
-`id`, `payment_id?`, `source` (`webhook|verify_call|return_url`),
-`signature_valid` (boolean), `payload` (jsonb), `received_at`. Append-only.
-
-### refunds
-`id`, `rider_id`, `ride_id?`, `payment_id?`, `amount_santim`, `reason`,
-`status` (`requested|approved|rejected|completed`), `requested_by`,
-`approved_by?`. Rules **[OPEN D-REFUND]**.
-
-## Operations
-
-### support_tickets
-`id`, `rider_id?`, `ride_id?`, `scooter_id?`, `category`, `status`,
-`description`, `assigned_staff_id?`, timestamps.
-
-### audit_log
-`id`, `actor_type` (`staff|system`), `actor_id?`, `action`, `target_type`,
-`target_id`, `before` / `after` (jsonb, secrets redacted), `ip`,
-`created_at`. Append-only.
-
-### idempotency_keys
-`key`, `subject_id`, `endpoint`, `request_hash`, `response_status`,
-`response_body`, `created_at`, `expires_at`. Primary key
-`(subject_id, endpoint, key)`.
-
-### app_settings
-Key/value (jsonb) for configurable business rules not tied to a pricing
-plan (e.g. min top-up 50 000 santim, OTP limits). Changes audited.
+Every fixture row is named or flagged `DEV FIXTURE`. The loader refuses
+any `APP_ENV` other than `development`/`test`, and refuses to replace an
+active non-fixture plan.

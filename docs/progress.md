@@ -5,13 +5,65 @@ was not tested, blockers, and the next task.
 
 ## Current status
 
-- **Completed phase:** Phase 2 — Configuration hardening and logging
-  (pending owner review; CI result below)
-- **Next phase:** Phase 3 — Database schema and migrations
+- **Master work order** in progress (plan revision 2).
+- **Completed phases:** 0–3. Phase 3 = data model and migrations.
+- **Next phase:** Phase 4 — Authentication and request security
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
-  not merged); Phase 2 `claude/phase-2-config-logging`, stacked on PR #1.
+  not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
+  PR #1); Phase 3 `claude/phase-3-data-model` (stacked on Phase 2).
+  Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Master work order received; Phase 3: Data model and migrations
+Reconciliation:
+- Verified state: PR #1 (`6c33449`) and PR #2 (`56591a7`) are open
+  drafts; `main` = initial commit only. Phase 2 CI run 37210235095 on
+  `56591a7` passed both jobs (`expo-doctor` 21/21).
+- Plan revision 2 replaces Phases 3–17 (implementation-plan.md).
+  CLAUDE.md now allows sequential phases within one task and defines the
+  implemented/simulated/blocked/verified vocabulary.
+- New docs: `traceability.md`, `user-actions.md`, `launch-checklist.md`.
+- Docs re-checked: Chapa, GeezSMS, Mapbox and Expo documentation domains
+  are still blocked by the egress proxy. The `chapa-nodejs` SDK under the
+  Chapa-Et GitHub organization is published by an individual npm
+  maintainer, so it is not used as an authoritative source for webhook
+  signing. User action B1 asks for the domains to be allowed.
+
+Changed (Phase 3):
+- 36-table schema split by area (`packages/db/src/schema/`), migration
+  `0001_core_schema`.
+- Custom migration `0002_db_rules`:
+  - balanced-journal deferred constraint triggers;
+  - append-only triggers (ledger, journals, audit, ride events, command
+    acks; TRUNCATE blocked);
+  - payment-event raw-field immutability;
+  - pricing-plan immutability and transition rules;
+  - ride identity/snapshot immutability and terminal-state protection;
+  - device simulated-flag immutability;
+  - seeded roles/permissions and system ledger accounts;
+  - `captain_app` runtime role and grants.
+- `packages/domain`: integer santim parsing, formatting and arithmetic;
+  Ethiopia-local time.
+- Development fixtures (`db:fixtures`), run by `cloud-setup.sh` on the
+  local dev DB.
+
+Executed checks:
+- db tests 29 (24 rule tests + 3 fixture + 2 migration/helper suites) on
+  PostgreSQL 16.14; domain tests 22; all other packages unchanged and
+  passing (see CI).
+- `cloud-setup.sh` applied migrations 0001–0002 and loaded fixtures on
+  the existing local cluster.
+
+Not tested / limitations:
+- Runtime login wiring for the API (`captain_app` member user) is
+  documented but the API still connects with the URL it is given;
+  deployment docs in Phase 13.
+- Schema-drift check added to CI (fails if `drizzle-kit generate` would
+  create a migration); verified locally ("No schema changes").
+- Balance computation performance (sum over lines) not load tested
+  (Phase 12).
+
 
 ### 2026-10-04 — Phase 2: Configuration hardening and logging
 Preconditions:

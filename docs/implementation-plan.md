@@ -73,93 +73,134 @@ Acceptance:
 - Guard tests: fake/simulated providers, dev-only variables, debug/trace
   log level in production; config errors never echo values.
 
-## Phase 3 — Database schema and migrations
-Scope: tables from `docs/data-model.md` (except telemetry partitioning),
-constraints (ledger sum trigger, partial unique ride indexes, append-only
-grants), seed for roles and system ledger accounts.
-Acceptance: migrations apply from empty DB in session and CI; constraint
-tests (unbalanced ledger rejected, second active ride rejected, top-up
-< 50 000 santim rejected, `is_simulated`/adapter CHECK).
+## Plan revision 2 (2026-10-04): master work order
 
-## Phase 4 — Authentication (OTP) — needs D-LOGIN, D-EMAIL, D-ELIG
-Scope: OTP challenge/verify, `OtpSender` interface, GeezSMS adapter
-(from its docs), email adapter (chosen vendor), log-only senders for dev,
-JWT access + refresh rotation, rider vs staff audiences, rate limits.
-Acceptance: tests for expiry, attempts, cooldown, token audience
-separation; GeezSMS/email adapters tested against recorded/mocked HTTP
-(real send tested only with owner-provided sandbox credentials — otherwise
-reported untested).
+The owner's master work order (build through a verified launch candidate)
+replaced the original Phases 3–17. Phases still run **one at a time**
+(CLAUDE.md rule 1), each on its own stacked branch and PR. Merge order is
+the phase order. Every phase must also satisfy the global acceptance rules
+above. Status labels (implemented / simulated / blocked / verified) are
+defined in CLAUDE.md. Requirement-level status lives in
+`docs/traceability.md`.
 
-## Phase 5 — Roles, staff management, audit log
-Acceptance: route-level permission tests for rider/operator/admin matrix
-(product-spec §8); every staff mutation writes `audit_log`.
+## Phase 3 — Data model and migrations
+Scope: full schema for identity, sessions, OTP, roles/permissions, fleet,
+devices, zones, reservations, rides, pricing (versioned), ledger,
+payments, refunds, device commands/telemetry, alerts, incidents,
+maintenance, audit, idempotency. Money in `bigint` santim with currency.
+Balanced, append-only ledger enforced in the database. Separate migration
+owner and runtime roles. Development fixtures clearly labelled and refused
+outside development/test.
+Acceptance: migrations apply to an empty DB locally and in CI; constraint
+tests for unbalanced journals, ledger UPDATE/DELETE, one active ride per
+rider/scooter, currency, top-up minimum, simulated-device flag, runtime
+role privileges; fixture loader refuses staging/production.
 
-## Phase 6 — Fleet registry and simulated device gateway
-Scope: scooters, devices, QR codes, `DeviceGateway` interface,
-`SimulatedDeviceAdapter`, `device_commands` lifecycle, timeout worker
-(pg-boss), internal API for command results.
-Acceptance: tests for ack, nack, timeout, late ack (incident only, no
-automatic command); simulated devices flagged and badge data exposed; no
-supplier protocol code exists; motion-affecting commands rejected by the
-real adapter interface until a documented stationary check exists.
+## Phase 4 — Authentication and request security
+Scope: rider and staff OTP sign-in (email + SMS channels), hashed OTPs,
+attempt limits, cooldowns, PostgreSQL-backed rate limits; opaque session
+tokens (hashed) with refresh rotation, expiry, logout and revocation;
+mobile bearer tokens; web cookies (`HttpOnly`, `Secure`, `SameSite`) plus
+CSRF protection; explicit CORS; body limits; profile editing with contact
+re-verification; suspension and deletion workflow; staff provisioning
+CLI (no public admin sign-up). Provider adapters: SMTP email (protocol
+standard), GeezSMS **blocked on official docs**, log-only senders for
+development.
+Acceptance: tests for OTP expiry/attempts/cooldown/rate limit, token
+audience separation, refresh rotation and reuse detection, revocation,
+CSRF, CORS, suspended accounts. **Real delivery is not claimed** until a
+message is received (launch checklist).
 
-## Phase 7 — Wallet ledger
-Scope: ledger posting service, balances, holds, admin adjustments.
-Acceptance: concurrency test (parallel charges cannot overspend),
-idempotency tests, balance = sum of entries property test.
+## Phase 5 — Authorization, staff management, audit
+Scope: permission catalogue and role → permission mapping in the
+database; backend enforcement on every staff route; rider ownership
+checks; audit records for sensitive staff actions; staff management API.
+Acceptance: matrix tests (rider/operator/admin × every protected route),
+cross-user access tests, URL/body tampering tests, audit rows written.
 
-## Phase 8 — Chapa top-ups — **blocked on T-01** (official Chapa docs)
-Scope: designed from the **official** Chapa documentation only (endpoints,
-webhook authenticity check, verify semantics, test mode). Search snippets
-are not a basis for implementation. Reconciliation job, `review` state.
-Acceptance: tests with recorded Chapa responses for success, failure,
-duplicate webhook, invalid signature, amount mismatch, lost webhook.
-Live sandbox test only with owner-provided test keys; otherwise untested.
+## Phase 6 — Fleet, zones, devices and the simulator
+Scope: scooters, devices, assignments, maintenance records, zones (GeoJSON
+polygons with server-side point-in-polygon; PostGIS not required yet),
+nearby search, freshness/staleness rules, operational alerts; IoT
+`DeviceAdapter` interface, **labelled simulator**, internal authenticated
+gateway↔API contract, command lifecycle with deadlines, late/duplicate
+acknowledgments, telemetry ingestion with validation; PostgreSQL-backed
+sweeper worker (advisory-lock singleton).
+Acceptance: tests for zone geometry, stale telemetry, invalid coordinates,
+command ack/nack/timeout/late/duplicate, internal auth, simulator
+labelling; no supplier protocol code.
 
-## Phase 9 — Ride start (unlock) — needs D-PRICE, D-MINBAL (D-PAUSE, D-ZONES may stay off)
-Acceptance: insufficient balance blocked with `INSUFFICIENT_BALANCE`; one
-active ride per rider/scooter; unlock ack/timeout transitions tested with
-simulator; no charge on failed unlock.
+## Phase 7 — Wallet ledger and payments
+Scope: ledger posting service, balances (ledger/held/available), holds,
+history; top-up flow with unique references, state machine
+(pending → succeeded/failed/expired → reconciled), verify-before-credit,
+idempotent event processing, reconciliation sweep, ambiguous-result
+handling; refunds and staff adjustments (reasons, permissions, audit).
+`PaymentProvider` interface with an isolated fake provider. **Chapa
+adapter blocked** on official docs (T-01).
+Acceptance: concurrency tests (parallel credits/debits), tampered
+amount/currency/reference, replayed and reordered events, rollback on
+failure, redirect never credits, exactly-once credit.
 
-## Phase 10 — Ride completion, billing, recovery — needs D-BILLCUT, D-PARK, D-ENDCONF, D-LOWBAL, D-REFUND
-Acceptance: states `end_requested → completion_pending → completed` and
-`operator_review` with `ride_incidents`; billing cutoff computed by the
-configured policy; fare from snapshot; ledger charge idempotent; no
-automatic physical command on any failure path (test asserts no command is
-queued); late unlock ack opens an incident; restart recovery test for
-pending commands.
+## Phase 8 — Pricing and ride engine
+Scope: versioned pricing configuration (fees, rounding, pause rate,
+minimum balance, hold, reservation window, max duration) with
+development fixtures only; reservation, start, unlock pending, active,
+pause, end requested, completion pending, completed, failed start,
+operator review; idempotent start/end; pricing snapshots; settlement;
+recovery; receipts and history.
+Acceptance: state-transition table tests, races (double start, two riders
+one scooter), duplicate/late events, disconnect/restart recovery, failed
+unlock never charges, low balance never triggers hardware action.
 
-## Phase 11 — Rider mobile app (screens) + EAS builds — needs D-UI (placeholder ok), D-EXPO
-Scope: screens from product-spec §5, Mapbox map, QR scan, wallet/top-up,
-ride flow against staging-like API with simulator. `eas.json` profiles.
-Acceptance: component tests; JS bundle builds; **EAS Android development
-build succeeds** — only after Expo access is verified; otherwise phase
-reports the build as blocked.
+## Phase 9 — Rider mobile app and EAS configuration
+Scope: working screens against the API (product-spec §5), secure token
+storage, Mapbox (development build), QR scanning + manual entry,
+localization scaffolding, provisional styling; `eas.json` profiles, app
+identifiers, permissions text, deep links.
+Acceptance: component/unit tests, bundle export, expo-doctor; native
+builds **only claimed when an EAS build actually succeeds** (blocked on
+Expo access).
 
-## Phase 12 — Rider web app
-Acceptance: Playwright E2E (Chromium) for sign-in (log-only OTP), top-up
-(fake provider), start/end ride (simulator) against a local API + PG.
+## Phase 10 — Rider web app
+Scope: same rider flows on Next.js with cookie sessions, CSRF, Mapbox GL,
+manual scooter code entry (camera optional).
+Acceptance: Playwright E2E against a real API and PostgreSQL with fake
+providers and the simulator.
 
-## Phase 13 — Operator area (`staff-web` /operator)
-Acceptance: Playwright tests for fleet map/list, status change, service
-command with ack/timeout display, SIMULATED badge, operator-review queue
-and incident resolution.
+## Phase 11 — Staff web (admin and operator)
+Scope: admin overview, riders, fleet/devices, rides, payments
+reconciliation + CSV exports (formula-injection safe), refunds and
+adjustments, pricing and zones, staff and roles, incidents, audit trail;
+operator fleet/tasks, alerts, inspections/maintenance, repositioning,
+incidents. Confirmations and reasons for destructive/financial actions.
+Acceptance: Playwright E2E including operator-cannot-do-admin checks.
 
-## Phase 14 — Admin area (`staff-web` /admin)
-Acceptance: Playwright tests for rider management, adjustments (audited),
-pricing/zone config, staff roles, audit log view.
+## Phase 12 — Performance and resilience testing
+Scope: reproducible load test for a documented fleet/rider load; restart
+and failure drills in CI where possible.
+Acceptance: measured results recorded; no unlimited-scale claims.
 
-## Phase 15 — Staging environment — needs D-HOST
-Acceptance: manual deploy workflow to staging; migrations run; health
-checks pass; Chapa test keys; preview mobile build points to staging.
-No production resources created.
+## Phase 13 — Deployment preparation and staging
+Scope: hosting evaluation (TCP support, latency, backups, cost model
+without invented prices), container builds in CI, environment
+separation, migrations release path, DNS/HTTPS for captain.et, webhook
+endpoints, gateway networking, monitoring/alerts, backups and restore
+drill, rollback and incident runbooks. Staging deploy **blocked** on
+hosting account and explicit authorization.
 
-## Phase 16 — Real IoT gateway — blocked on D-IOT (supplier documentation)
-Scope: `SupplierTcpAdapter` implemented strictly from supplier docs;
-protocol tests built from documented examples; bench test with real device.
-Acceptance defined when docs arrive.
+## Phase 14 — Real provider integrations
+Chapa, GeezSMS, email provider, Mapbox tokens. Each blocked on official
+docs and/or credentials; each verified only with real evidence.
 
-## Phase 17 — Production readiness (no deploy without owner approval)
-Security review, backups/PITR, monitoring/alerts, load test of ride start,
-runbooks, store listing prerequisites. Production deploy is a separate,
-owner-approved task.
+## Phase 15 — Real IoT protocol
+Blocked on supplier documentation, a test device and SIM. Implement
+framing, checksums, heartbeats, correlation, safety semantics from the
+docs; verify with recorded fixtures, then the real device.
+
+## Phase 16 — Launch readiness and pilot
+`docs/launch-checklist.md` evidence: real OTP, one controlled live
+payment credited once, real scooter telemetry/unlock/end, recovery,
+devices installed on Android and iPhone, backup restore, rollback,
+reconciliation, controlled pilot. Production launch only on explicit
+instruction.
