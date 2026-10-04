@@ -28,7 +28,9 @@ export function isStaffRoute(url: string | undefined): boolean {
  * - the staff member must hold the declared permission.
  */
 export function registerStaffGuard(app: FastifyInstance, deps: AuthDeps) {
-  app.addHook('preHandler', async (request) => {
+  // onRequest: authorization runs before body parsing and validation, so
+  // unauthorized callers learn nothing about request schemas.
+  app.addHook('onRequest', async (request) => {
     const url = request.routeOptions.url;
     if (!isStaffRoute(url)) return;
     const auth = await authenticate(request, deps);

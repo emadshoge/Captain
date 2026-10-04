@@ -62,7 +62,7 @@ export const riderAccountRoutes: FastifyPluginAsyncZod<{ deps: AuthDeps }> = asy
   app,
   { deps },
 ) => {
-  app.addHook('preHandler', requireRider(deps));
+  app.addHook('onRequest', requireRider(deps));
 
   app.get('/v1/rider/me', { schema: { response: { 200: RiderProfileSchema } } }, async (request) =>
     loadProfile(deps.pool, riderOf(request).riderId),

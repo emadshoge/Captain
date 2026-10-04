@@ -63,6 +63,13 @@ make them configurable and reference the ID.
 | R-49 | Staff lockout protections: no self status/role/MFA changes; at least one active admin must always remain. | 2026-10-04 | Prevents accidental or malicious loss of administration. |
 | R-50 | Viewing a rider's personal data (`GET /v1/admin/riders/:id`) is audited. | 2026-10-04 | Privacy accountability. |
 
+| R-51 | Gateway↔API: the API owns command state in PostgreSQL; the gateway pulls queued commands (`FOR UPDATE SKIP LOCKED`), pushes results and batched telemetry to `/internal/v1/*` with a shared service token (constant-time compare, required in staging/production, private network only). | 2026-10-04 | Simple, restart-safe, no message broker; idempotent results. |
+| R-52 | Background work runs in a separate `worker` process: periodic sweeps (command timeouts, offline devices, stale telemetry, purges) behind a session advisory lock (one active sweeper). pg-boss not adopted. | 2026-10-04 | Few periodic jobs; avoids an extra schema/dependency. |
+| R-53 | Rentable = status available + assigned online device + fresh location (≤ `FLEET_TELEMETRY_STALE_SECONDS`) + battery ≥ `FLEET_MIN_RIDEABLE_BATTERY`; simulated devices are never rentable in production. One rule shared by map, QR lookup and ride start. | 2026-10-04 | Consistent availability; honest about stale data. |
+| R-54 | Telemetry validation: coordinate ranges, null island, lat/lng pairing, battery/speed ranges, clock skew (≤ 60 s ahead, ≤ 24 h old). Invalid reports are stored (for diagnosis) but never move a scooter; out-of-order reports never move it backwards. | 2026-10-04 | Untrusted device data. |
+| R-55 | Staff service lock/unlock require a confirmed stationary state (fresh telemetry with speed 0) and are refused for real supplier devices until a documented stationary check exists; service unlock also requires maintenance/charging status. Late unlock acks open an incident; nothing is sent automatically. | 2026-10-04 | Implements R-22/R-23. |
+| R-56 | Authorization hooks run at `onRequest` (before body parsing/validation). | 2026-10-04 | Unauthorized callers cannot probe schemas (found by tests). |
+
 ## Unresolved (owner decisions required)
 
 | ID | Question | Needed by phase | Notes / current handling |
