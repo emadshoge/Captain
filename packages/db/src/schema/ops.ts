@@ -80,6 +80,7 @@ export const alertKind = pgEnum('alert_kind', [
   'max_ride_duration',
   'low_balance',
   'invalid_telemetry',
+  'payment_review',
 ]);
 export const alertSeverity = pgEnum('alert_severity', ['info', 'warning', 'critical']);
 export const alertStatus = pgEnum('alert_status', ['open', 'acknowledged', 'resolved']);

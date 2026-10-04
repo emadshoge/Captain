@@ -142,8 +142,8 @@ describe('reference data', () => {
       'reservation_revenue',
       'ride_revenue',
     ]);
-    expect(await one<{ n: string }>(`select count(*) n from pricing_plans`)).toEqual({ n: '0' });
-    expect(await one<{ n: string }>(`select count(*) n from zones`)).toEqual({ n: '0' });
+    expect(await one<{ n: number }>(`select count(*) n from pricing_plans`)).toEqual({ n: 0 });
+    expect(await one<{ n: number }>(`select count(*) n from zones`)).toEqual({ n: 0 });
   });
 });
 

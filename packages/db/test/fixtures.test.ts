@@ -16,7 +16,7 @@ afterAll(async () => {
 describe('loadDevFixtures', () => {
   it.each([undefined, 'staging', 'production'])('refuses APP_ENV=%s', async (APP_ENV) => {
     await expect(loadDevFixtures(pool, { APP_ENV })).rejects.toThrow(/refusing/);
-    expect((await pool.query(`select count(*) from scooters`)).rows[0].count).toBe('0');
+    expect((await pool.query(`select count(*) from scooters`)).rows[0].count).toBe(0);
   });
 
   it('loads labelled, simulated fixtures idempotently', async () => {
@@ -34,12 +34,12 @@ describe('loadDevFixtures', () => {
         (select count(*) from pricing_plans where is_dev_fixture and name like 'DEV FIXTURE%') plans`)
     ).rows[0];
     expect(counts).toEqual({
-      scooters: '12',
-      simulated_devices: '12',
-      real_devices: '0',
-      assignments: '12',
-      zones: '4',
-      plans: '1',
+      scooters: 12,
+      simulated_devices: 12,
+      real_devices: 0,
+      assignments: 12,
+      zones: 4,
+      plans: 1,
     });
   });
 

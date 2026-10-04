@@ -20,6 +20,14 @@ import { internalRoutes } from './fleet/internal-routes';
 import { riderFleetRoutes } from './fleet/rider-routes';
 import { fleetStaffRoutes } from './fleet/staff-routes';
 import { riderAccountRoutes } from './rider/routes';
+import type { PaymentDeps } from './wallet/payments';
+import { createPaymentProvider, type PaymentProvider } from './wallet/providers';
+import {
+  fakeCheckoutRoutes,
+  riderWalletRoutes,
+  walletStaffRoutes,
+  webhookRoutes,
+} from './wallet/routes';
 import { healthRoutes } from './routes/health';
 import { staffRoutes } from './staff/routes';
 
@@ -33,6 +41,8 @@ export interface BuildAppOptions {
   /** Test hooks: replace OTP senders / the clock. */
   senders?: OtpSenders;
   now?: () => Date;
+  /** Test hook: inject a payment provider (e.g. a FakePaymentProvider instance). */
+  paymentProvider?: PaymentProvider | null;
 }
 
 export async function buildApp({
@@ -42,6 +52,7 @@ export async function buildApp({
   logDestination,
   senders,
   now,
+  paymentProvider,
 }: BuildAppOptions) {
   const logger = createLogger({
     service: 'captain-api',
@@ -117,6 +128,19 @@ export async function buildApp({
   await app.register(riderFleetRoutes, { deps });
   await app.register(fleetStaffRoutes, { deps });
   await app.register(internalRoutes, { deps });
+
+  const paymentDeps: PaymentDeps = {
+    config,
+    pool: dbPool,
+    now: deps.now,
+    provider: paymentProvider === undefined ? createPaymentProvider(config) : paymentProvider,
+  };
+  await app.register(riderWalletRoutes, { deps: paymentDeps, authDeps: deps });
+  await app.register(webhookRoutes, { deps: paymentDeps });
+  await app.register(walletStaffRoutes, { deps: paymentDeps });
+  if (config.APP_ENV === 'development' || config.APP_ENV === 'test') {
+    await app.register(fakeCheckoutRoutes, { deps: paymentDeps });
+  }
   if (config.APP_ENV === 'development' || config.APP_ENV === 'test') {
     await app.register(devRoutes, { senders: otpSenders });
   }

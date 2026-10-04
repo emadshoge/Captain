@@ -62,12 +62,12 @@ Updated at the end of every phase.
 
 | Req | Requirement | Status | Phase / blocker |
 |---|---|---|---|
-| W1 | Balances (ledger, held, available) + history | planned | 7 |
-| W2 | Top-up ≥ 500 ETB, unique references, state machine | planned | 7 |
-| W3 | Verify-before-credit; never credit from redirect | planned | 7 |
-| W4 | Idempotent duplicate/reordered events | planned | 7 |
-| W5 | Reconciliation when webhooks fail | planned | 7 |
-| W6 | Refunds and staff adjustments with audit | planned | 7/11 |
+| W1 | Balances (ledger, held, available) + history | implemented + tested (`apps/api/test/wallet.test.ts`) | 7 |
+| W2 | Top-up ≥ 500 ETB, unique references, state machine | implemented + tested | 7 |
+| W3 | Verify-before-credit; never credit from redirect | implemented + tested (fake provider only) | 7 |
+| W4 | Idempotent duplicate/reordered events | implemented + tested (replay, concurrency) | 7 |
+| W5 | Reconciliation when webhooks fail | implemented + tested (reconcile, expiry, late success) | 7 |
+| W6 | Refunds and staff adjustments with audit | implemented + tested (API; staff UI in 11) | 7/11 |
 | W7 | Chapa checkout + webhook auth + verify | **blocked** (T-01, B1, B2) | 14 |
 
 ## Maps, fleet, zones (H)

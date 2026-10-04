@@ -8,6 +8,7 @@ import { type ApiConfig, ConfigError, loadApiConfig } from '@captain/config';
 import { createPool } from '@captain/db';
 import { createLogger, redactDeep } from '@captain/logging';
 import { runSweepsOnce } from './worker/sweeps';
+import { createPaymentProvider } from './wallet/providers';
 
 let config: ApiConfig;
 try {
@@ -26,6 +27,7 @@ const logger = createLogger({
   appEnv: config.APP_ENV,
 });
 const pool = createPool({ connectionString: config.DATABASE_URL, max: 3 });
+const provider = createPaymentProvider(config);
 const INTERVAL_MS = 5_000;
 let stopping = false;
 
@@ -34,7 +36,7 @@ logger.info({ config: redactDeep(config) }, 'worker starting');
 async function loop() {
   while (!stopping) {
     try {
-      const results = await runSweepsOnce({ config, pool, now: () => new Date() });
+      const results = await runSweepsOnce({ config, pool, now: () => new Date(), provider });
       if (results === null) logger.debug('another worker holds the sweep lock');
       else if (Object.values(results).some((n) => n > 0))
         logger.info({ results }, 'sweeps completed');

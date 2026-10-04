@@ -5,6 +5,7 @@ import { createPool, type Pool } from '@captain/db';
 import { createMigratedTestDatabase, type TestDatabase } from '@captain/db/testing';
 import { buildApp } from '../src/app';
 import { LogOnlySender, type OtpSenders } from '../src/auth/senders';
+import type { PaymentProvider } from '../src/wallet/providers';
 
 export const WEB_ORIGIN = 'http://localhost:3001';
 
@@ -32,6 +33,7 @@ export async function buildTestApp(
   h: Harness,
   env: Record<string, string> = {},
   senders?: OtpSenders,
+  paymentProvider?: PaymentProvider | null,
 ) {
   // Each test app gets its own 2-hour time window so OTP cooldowns and hourly
   // limits (which are real and shared via the database) never couple tests.
@@ -56,6 +58,7 @@ export async function buildTestApp(
     pool: h.pool,
     senders: otpSenders,
     now: () => new Date(nowMs),
+    ...(paymentProvider === undefined ? {} : { paymentProvider }),
     logDestination: { write: (line: string) => void lines.push(line) },
   });
   const ip = randomIp();
