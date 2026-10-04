@@ -19,7 +19,7 @@ Acceptance:
 - Unresolved business decisions recorded.
 - Dependency versions checked against current registries/docs.
 
-## Phase 1 — Cloud setup, skeletons, automated checks ✅ (CI result: see progress.md)
+## Phase 1 — Cloud setup, skeletons, automated checks ✅
 Goal: a reproducible cloud dev environment, empty-but-running apps, and CI.
 Scope:
 - pnpm workspace (no Turborepo yet, R-02), shared `tsconfig`, ESLint flat
@@ -58,12 +58,20 @@ Acceptance:
 - No secrets, `.env` files, or database files tracked.
 - CI workflow runs on the PR.
 
-## Phase 2 — Configuration hardening and logging
-Scope: per-app env schemas as features need them, provider selection
-enums extended, structured logger with redaction, request IDs.
-Acceptance: guard tests for every provider added so far; logs redact
-configured secret keys; unknown env keys with `DEV_`/`ALLOW_FAKE_`
-prefixes rejected in production.
+## Phase 2 — Configuration hardening and logging ✅ (CI: see progress.md)
+Scope: structured logging for API and gateway, request IDs, redaction,
+safe error envelope, production config guards.
+Acceptance:
+- Logs are JSON with service/env/level/time. Request-scoped lines carry
+  `requestId`, which is also in the `x-request-id` header and error bodies.
+- Redaction tests cover authorization headers, cookies, passwords, OTP
+  codes, provider credentials/API keys/tokens, and connection strings, in
+  objects, messages, errors, child bindings and URLs.
+- Request bodies are not logged (tested).
+- Error responses follow the envelope; 500s leak no internal details;
+  validation errors do not echo submitted values.
+- Guard tests: fake/simulated providers, dev-only variables, debug/trace
+  log level in production; config errors never echo values.
 
 ## Phase 3 — Database schema and migrations
 Scope: tables from `docs/data-model.md` (except telemetry partitioning),

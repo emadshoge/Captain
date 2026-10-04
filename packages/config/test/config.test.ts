@@ -84,3 +84,51 @@ describe('production safety guard', () => {
     }
   });
 });
+
+describe('Phase 2 configuration hardening', () => {
+  const prod = { APP_ENV: 'production', DATABASE_URL: 'postgres://db.internal/captain' };
+
+  it.each(['debug', 'trace'])('rejects LOG_LEVEL=%s in production', (level) => {
+    expect(() => loadApiConfig({ ...prod, LOG_LEVEL: level })).toThrow(/LOG_LEVEL/);
+    expect(() => loadGatewayConfig({ APP_ENV: 'production', LOG_LEVEL: level })).toThrow(
+      /LOG_LEVEL/,
+    );
+  });
+
+  it.each(['info', 'warn', 'error'])('allows LOG_LEVEL=%s in production', (level) => {
+    expect(loadApiConfig({ ...prod, LOG_LEVEL: level }).LOG_LEVEL).toBe(level);
+  });
+
+  it('allows debug logging outside production', () => {
+    expect(
+      loadApiConfig({ APP_ENV: 'development', DATABASE_URL: DB, LOG_LEVEL: 'debug' }).LOG_LEVEL,
+    ).toBe('debug');
+  });
+
+  it.each([
+    ['APP_ENV', 'prod-secret-env'],
+    ['LOG_LEVEL', 'loud-secret-level'],
+    ['PORT', 'port-secret-xyz'],
+    ['PAYMENT_PROVIDER', 'chapa-secret-key-value'],
+    ['DATABASE_URL', 'mysql://admin:db-secret-pw@host/x'],
+  ])('never echoes the invalid value of %s', (key, value) => {
+    const env = { APP_ENV: 'development', DATABASE_URL: DB, [key]: value };
+    try {
+      loadApiConfig(env);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      expect((error as Error).message).toContain(key);
+      expect((error as Error).message).not.toContain(value);
+    }
+  });
+
+  it('reports every problem at once', () => {
+    try {
+      loadApiConfig({ ...prod, PAYMENT_PROVIDER: 'fake', DEVICE_ADAPTER: 'simulated', DEV_X: '1' });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as ConfigError).issues).toHaveLength(3);
+    }
+  });
+});
