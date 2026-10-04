@@ -1,6 +1,9 @@
 import type { AppEnv } from './env';
 import { ConfigError } from './errors';
 
+// Duplicated from env.ts to avoid a runtime import cycle.
+const DEV_AUTH_SECRET = 'captain-development-only-auth-secret-not-for-real-use';
+
 /** Provider values that fake or simulate a real integration. */
 export const FAKE_PROVIDER_VALUES: ReadonlySet<string> = new Set(['fake', 'log_only', 'simulated']);
 
@@ -32,6 +35,9 @@ export function assertProductionSafe(
     issues.push(
       `LOG_LEVEL: "${config.LOG_LEVEL}" is not allowed in production (use info or higher)`,
     );
+  }
+  if (config.AUTH_SECRET === DEV_AUTH_SECRET) {
+    issues.push('AUTH_SECRET: the development secret is not allowed in production');
   }
   for (const key of PROVIDER_KEYS) {
     const value = config[key];

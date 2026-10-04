@@ -6,14 +6,79 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–3. Phase 3 = data model and migrations.
-- **Next phase:** Phase 4 — Authentication and request security
+- **Completed phases:** 0–4 (Phase 4 = authentication and request security).
+- **Next phase:** Phase 5 — Authorization, staff management, audit
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
-  PR #1); Phase 3 `claude/phase-3-data-model` (stacked on Phase 2).
+  PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
+  `claude/phase-4-auth` (stacked on Phase 3).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 4: Authentication and request security
+CI for Phase 3: run 37211222429 on `70ec1c1`, both jobs passed (incl. the
+schema-drift check and runtime-role permission tests on CI PostgreSQL).
+
+Changed:
+- **Config:** `AUTH_SECRET` (required ≥32 chars in staging/production;
+  labelled dev default refused in production), `AUTH_RIDER_CHANNELS`, OTP
+  and session lifetimes, `CORS_ORIGINS` (required in staging/production),
+  `COOKIE_SECURE` and `SMTP_REQUIRE_TLS` (must be true in
+  staging/production), SMTP settings, `TRUST_PROXY`, `BODY_LIMIT_BYTES`.
+  Every enabled rider channel must have a real provider in
+  staging/production.
+- **OTP:** request/verify for riders (SMS or email) and staff (email,
+  web only). HMAC-hashed codes, attempts, expiry, single use, resend
+  cooldown, PostgreSQL rate limits. Unknown staff emails get an identical
+  response with nothing stored or sent. A failed delivery deletes the
+  challenge.
+- **Sessions:** opaque hashed tokens, rotating refresh tokens with reuse
+  detection, absolute caps, logout, list/revoke own sessions, revoke all.
+- **Browser:** HttpOnly SameSite=Strict cookies (`__Host-` when secure),
+  session-bound CSRF token, Origin checks, explicit CORS, Helmet
+  (CSP `default-src 'none'`, HSTS when secure).
+- **Rider account:** profile, terms/age attestation, contact change with
+  re-verification (409 if the contact belongs to another rider),
+  deletion request (sessions revoked, audited); suspended accounts
+  blocked.
+- **Senders:** SMTP email adapter (nodemailer); log-only senders with a
+  dev outbox registered only in development/test; GeezSMS **not
+  implemented** (blocked on docs).
+- **Staff:** provisioning CLI (`create/grant/disable`, reason required,
+  audited, disable revokes sessions); staff login audited.
+
+Executed checks:
+- API tests 44 on PostgreSQL 16.14, including:
+  - sign-up and sign-in, hash-only storage and no OTP in logs, invalid
+    numbers;
+  - attempt lockout, expiry, single use, cooldown with Retry-After, the
+    per-destination limit, unavailable or unoffered channels, delivery
+    failure cleanup;
+  - refresh rotation and reuse revocation, access expiry, absolute
+    session cap, logout, cross-rider session isolation, malformed tokens;
+  - cookie attributes, `__Host-` names, CSRF/Origin enforcement, login
+    CSRF, CORS allow and deny, security headers;
+  - suspension, contact change and conflicts, deletion request;
+  - staff CLI rules, staff web-only login and unknown-email behaviour,
+    staff vs rider route separation, disable revoking sessions;
+  - **SMTP adapter against a real local SMTP server** (auth, delivery,
+    wrong password returns 503 without leaking it);
+  - dev outbox absent in staging.
+- Config tests 36.
+
+Not tested / not done:
+- **Real OTP delivery:** no message has reached a real phone or inbox.
+  Launch checklist L1/L2 stay pending (B3, B4).
+- **GeezSMS adapter:** blocked on official documentation (B1) and an
+  account (B3).
+- **Staff second factor:** planned before launch (R-44).
+- **Deletion completion by staff:** Phase 5.
+- **Rate limits on payment/ride endpoints:** Phases 7–8.
+- **Cleanup of old `rate_limit_buckets` and expired tokens:** the worker
+  in Phase 6.
+- **Native secure storage (mobile):** Phase 9.
+
 
 ### 2026-10-04 — Master work order received; Phase 3: Data model and migrations
 Reconciliation:
