@@ -68,7 +68,13 @@ Skipped / not tested:
 - `expo-doctor` schema and directory checks: blocked here (see above).
 - Mobile app on a device or simulator: not run.
 - Next.js apps not exercised in a browser (build only; no E2E yet).
-- GitHub Actions result: see the PR checks. Recorded below once known.
+
+GitHub Actions (run 37209133576, commit 19013c4): **both jobs passed**.
+- Checks job: format, lint, typecheck, tests against the `postgres:16`
+  service (server 16.15), and builds.
+- Mobile job: Expo config + Android/iOS bundle export; `expo-doctor`
+  **21/21 checks passed** (including the two network checks blocked in the
+  cloud session).
 
 Blockers:
 - None for Phase 2.
