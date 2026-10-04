@@ -14,16 +14,16 @@ Status: **open**, **done** (with date and evidence), or **n/a**.
 |---|---|---|---|---|
 | D-LOGIN | Primary launch login: phone + SMS OTP, email + email OTP, or both offered | Phase 9–10 copy and default flow; real OTP verification | Both channels implemented behind config `AUTH_RIDER_CHANNELS` | open |
 | D-PRICE | Unlock fee (ETB) and per-minute price (ETB) | Production pricing plan | Pricing is versioned config; dev fixture plan labelled `DEV FIXTURE` | open |
-| D-ROUND | Billing rounding (per started minute? per second?) and pause charge | Production pricing | Configurable `rounding` and `pause_per_minute` fields | open |
+| D-ROUND | Billing rounding (per started minute? per second?) and pause charge | Production pricing | Per plan: `billing_increment_seconds`, `pause_per_minute_santim`, `max_pause_minutes` (R-68/R-69) | open |
 | D-MINBAL | Minimum available balance to start; wallet hold amount | Production pricing | Configurable; ride start blocked below it | open |
 | D-RESERVE | Reservations allowed? Window length? Fee? | Production config | Configurable; disabled unless a plan enables it | open |
 | D-PAUSE | Pause allowed? Max pause? | Production config | Configurable; disabled by default | open |
-| D-LOWBAL | Behaviour when balance runs out mid-ride (notify only, allow negative, end-on-park request) | Production config | Notify + allow negative up to configured floor; **never** a hardware action | open |
-| D-MAXRIDE | Maximum ride duration and what happens at the limit | Production config | Configurable; triggers rider notification + operator alert only | open |
+| D-LOWBAL | Behaviour when balance runs out mid-ride (notify only, allow negative, end-on-park request) | Production config | Operator alert during the ride; charge stops at the plan's `low_balance_floor_santim`, remainder recorded as unpaid with an alert; **never** a hardware action (R-69/R-70). Rider push notifications not built yet | open |
+| D-MAXRIDE | Maximum ride duration and what happens at the limit | Production config | `max_ride_minutes` per plan; operator alert only (rider notification not built yet); never a hardware action | open |
 | D-ZONES | Service area, parking, restricted zones for launch city | Real zone data | Zones editable by admins; none seeded for production | open |
-| D-BILLCUT / D-PARK / D-ENDCONF | Billing cutoff, parking validation, what device signal confirms completion, timeouts | Production config, real IoT | Configurable policy; default for development only | open |
+| D-BILLCUT / D-PARK / D-ENDCONF | Billing cutoff, parking validation, what device signal confirms completion, timeouts | Production config, real IoT | `RIDE_BILLING_CUTOFF`, `RIDE_END_CONFIRMATION`, `RIDE_PARKING_POLICY` (required in staging/production; DEV FIXTURE defaults in development) | open |
 | D-REFUND / D-UNPAID | Refunds, cancellations, penalties, negative balances/unpaid debt | Production policy | Staff refund/adjustment tools with reasons; no automatic penalties | open |
-| D-ELIG | Rider eligibility (age, ID verification, terms) | Onboarding | Terms acceptance + configurable minimum age attestation | open |
+| D-ELIG | Rider eligibility (age, ID verification, terms) | Onboarding | Terms acceptance records an age attestation timestamp; no minimum age or ID check is configured | open |
 | D-UI / D-L10N / D-LEGAL | Palette, logo, launch languages, approved terms/privacy/support wording | Store listings, public launch | Provisional style; English strings; legal text placeholders marked **DRAFT – NOT APPROVED** | open |
 
 ## B. Accounts, credentials and access

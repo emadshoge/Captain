@@ -6,8 +6,8 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–13 (Phase 13 = deployment preparation; staging deploy blocked).
-- **Next phase:** Phase 14 — Real provider integrations (blocked: B1, B2, B3, B4)
+- **Completed phases:** 0–13; Phase 16 readiness assessment written (`docs/status-report.md`). Readiness: **demo**.
+- **Blocked phases:** 14 (real providers: B1–B5), 15 (IoT: B6), staging (B7, B8), native builds (B9).
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
@@ -17,10 +17,26 @@ was not tested, blockers, and the next task.
   `claude/phase-9-mobile` (PR #9); Phase 10 `claude/phase-10-rider-web`
   (PR #10); Phase 11 `claude/phase-11-staff-web` (PR #11); Phase 12
   `claude/phase-12-performance` (PR #12); Phase 13 `claude/phase-13-deployment`
-  (stacked on Phase 12).
+  (PR #13); readiness report `claude/phase-16-readiness` (stacked on Phase 13).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 16 (partial): launch readiness assessment
+CI for Phase 13: run 37233807405 on `99e5586`, all five jobs passed (the
+`images` smoke test applied migrations from the image, reached API
+`/ready`, gateway health, both web apps, and the API refused a
+production configuration with fake providers).
+
+Changed: `docs/status-report.md` (final report: implemented features, CI
+evidence per phase, environments, simulated/blocked integrations,
+readiness, owner actions, next steps); launch checklist updated with
+the automated evidence that exists (L8, L9, L12–L15 remain pending on
+real infrastructure); stale descriptions in `docs/user-actions.md`
+corrected to match the code.
+
+Not done (blocked): every launch checklist item needing real providers,
+devices, phones or a deployed environment.
 
 ### 2026-10-04 — Phase 13: Deployment preparation
 CI for Phase 12: run 37233209638 on `2267f18`, all jobs passed (including
