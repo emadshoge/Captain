@@ -54,3 +54,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Next.js generated type references (recreated by `next typegen` / `next build`)
+next-env.d.ts
+expo-env.d.ts

@@ -5,11 +5,78 @@ was not tested, blockers, and the next task.
 
 ## Current status
 
-- **Completed phase:** Phase 0 — Documentation and rules
-- **Next phase:** Phase 1 — Cloud setup, skeletons, automated checks
+- **Completed phase:** Phase 1 — Cloud setup, skeletons, automated checks
+- **Next phase:** Phase 2 — Configuration hardening and logging
 - **Branch:** `claude/optimistic-cannon-do0z8i`
 
 ## Log
+
+### 2026-10-04 — Phase 1: Cloud setup, skeletons, automated checks
+Changed:
+- pnpm workspace with `apps/api`, `apps/iot-gateway`, `apps/rider-mobile`,
+  `apps/rider-web`, `apps/staff-web` (`/admin`, `/operator`), and
+  `packages/contracts`, `packages/config`, `packages/db`,
+  `packages/tsconfig`. Committed `pnpm-lock.yaml`, exact versions.
+- API: `GET /health` (liveness) and `GET /ready` (DB reachable + no
+  pending migrations; 503 otherwise). No payment, OTP, ride or device code.
+- IoT gateway: config + `GET /health` reporting
+  `protocol: not_implemented`. No protocol, packets or commands.
+- `@captain/config`: Zod env schemas, `APP_ENV` required, production guard
+  (fake/log-only/simulated providers, `DEV_*`, `ALLOW_FAKE_*`, `FAKE_*`,
+  `SIMULATED_*`, `OTP_FIXED_CODE`/`OTP_DEV_CODE`). Errors never include values.
+- `@captain/db`: Drizzle schema (`app_settings`), SQL migration
+  `0000_init`, migration runner + status, `db:migrate` CLI (refuses
+  production), `createTestDatabase()` helper.
+- `scripts/cloud-setup.sh`, `scripts/db-local.sh`, SessionStart hook in
+  `.claude/settings.json`. Setup guide: `docs/cloud-setup.md`.
+- GitHub Actions `ci.yml`: checks job with a `postgres:16` service, and a
+  mobile job (Expo bundles + expo-doctor).
+
+Executed checks (cloud session, 2026-10-04):
+- Setup via the hook: run 1 (fresh: initdb, start, create DBs, migrate),
+  run 2 (server running: reused, 0 migrations applied), run 3 (after
+  `stop`: reused cluster, restarted). All exit 0.
+- Safety: setup refuses `APP_ENV=production`; db-local refuses
+  `APP_ENV=staging` and an in-repo data dir (checked before creating
+  anything); hook is a no-op outside cloud sessions; cluster owned by
+  `postgres`, data dir mode 0700.
+- `pnpm check` exit 0: Prettier, ESLint (0 warnings), typecheck (9
+  projects), tests, builds, Expo check.
+- Tests: 35 passed. config 16, contracts 6, db 7 (real PG 16.14: version,
+  pending → applied → idempotent re-run, jsonb round trip, PK and CHECK
+  violations, helper refusals), api 3 (`/health`; `/ready` 503 with DB
+  down; `/ready` 503 pending → 200 after migrating, real DB), iot-gateway 3.
+- With the DB stopped, DB tests fail with a clear "cannot reach
+  PostgreSQL … run `pnpm db:local start`" message (no silent skip).
+- Builds: API and gateway esbuild bundles; `next build` for rider-web and
+  staff-web (static routes `/`, `/admin`, `/operator`).
+- Built API run from a copy **outside the repo**: `/health` 200, `/ready`
+  200 against `captain_dev`. Built API with `APP_ENV=production
+  PAYMENT_PROVIDER=fake` and gateway with `DEVICE_ADAPTER=simulated` both
+  exit 1 with a guard message.
+- Expo: `expo config` resolves (SDK 57.0.0); `expo export` produced
+  Android and iOS Hermes bundles. `pnpm install` reports no peer warnings.
+- `expo-doctor`: 19/21 checks passed; the 2 failures need `api.expo.dev` /
+  `reactnative.directory`, which the egress proxy blocks. The full doctor
+  runs in CI.
+- Git: no `.env`, keys, `dist/`, `.next/`, `next-env.d.ts` or database
+  files tracked. Only `.env.example` placeholders. Secret-pattern grep clean.
+
+Skipped / not tested:
+- **Native mobile build (EAS)**: not attempted. No Expo account access
+  (D-EXPO), no `eas.json`. Bundle export is not proof a native build works.
+- `expo-doctor` schema and directory checks: blocked here (see above).
+- Mobile app on a device or simulator: not run.
+- Next.js apps not exercised in a browser (build only; no E2E yet).
+- GitHub Actions result: see the PR checks. Recorded below once known.
+
+Blockers:
+- None for Phase 2.
+- Phase 8 blocked on official Chapa docs (T-01). Phase 11 native builds
+  blocked on Expo access (D-EXPO).
+- Deprecation notices from drizzle-kit's transitive `@esbuild-kit/*`
+  packages and an old `uuid` (dev tooling only); revisit on drizzle-kit 1.0.
+
 
 ### 2026-10-04 — Phase 0 corrections (owner review)
 Changed:

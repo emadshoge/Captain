@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+node_modules
+dist
+.next
+.expo
+coverage
+**/migrations/meta
+next-env.d.ts
+# Markdown docs are hand-formatted; Prettier would re-pad tables.
+*.md

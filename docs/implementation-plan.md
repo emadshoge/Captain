@@ -12,14 +12,14 @@ Global acceptance rules for every phase after Phase 1:
 
 ---
 
-## Phase 0 — Documentation and rules ✅ (this task)
+## Phase 0 — Documentation and rules ✅
 Deliverables: `CLAUDE.md`, `docs/*`, `.gitignore`.
 Acceptance:
 - Spec, architecture, data model, plan, decisions, progress documents exist.
 - Unresolved business decisions recorded.
 - Dependency versions checked against current registries/docs.
 
-## Phase 1 — Cloud setup, skeletons, automated checks
+## Phase 1 — Cloud setup, skeletons, automated checks ✅ (CI result: see progress.md)
 Goal: a reproducible cloud dev environment, empty-but-running apps, and CI.
 Scope:
 - pnpm workspace (no Turborepo yet, R-02), shared `tsconfig`, ESLint flat

@@ -65,8 +65,13 @@ apps without changing the API.
 
 Internal packages are consumed **as TypeScript source** (`exports` →
 `src/index.ts`). They are compiled by each consumer's toolchain: Next.js
-`transpilePackages`, Metro, Vitest, and esbuild for the API bundle. This
-avoids a separate package build step.
+`transpilePackages`, Metro, and Vitest. The API and gateway are bundled
+with esbuild into **self-contained** `dist/` files, including third-party
+dependencies. This is needed because pnpm's isolated layout does not
+expose a workspace package's dependencies (e.g. `drizzle-orm` used by
+`@captain/db`) to the importing app at runtime. A smoke test of the built
+API caught this. The API bundle also carries `dist/migrations` for the
+readiness check.
 
 ## 3. Technology choices and verified versions
 
@@ -107,8 +112,21 @@ React version. Consequences:
   a shared React UI package is ever added, it must declare React as a
   `peerDependency` only.
 
-Exact resolved versions are pinned by the committed `pnpm-lock.yaml`.
-Tooling choices (ESLint, Prettier) are listed in `docs/decisions.md`.
+Exact versions are pinned in every `package.json` (`save-exact`) and by
+the committed `pnpm-lock.yaml`. pnpm `autoInstallPeers` is **off**:
+otherwise pnpm pulled "latest" peers into the Expo app (react-dom 19.3.0,
+react-native-worklets 0.13.0, @react-native/metro-config 0.87.1), which
+conflict with SDK 57. Required peers are declared explicitly at the
+versions in the SDK 57 template (react-dom 19.2.3, react-native-reanimated
+4.5.1, react-native-worklets 0.10.1, react-native-gesture-handler 2.32.0,
+@react-native/metro-config 0.86.3). `pnpm install` reports no peer
+warnings.
+
+Tooling (Phase 1): ESLint 10.12.0 (flat config), typescript-eslint
+8.71.0, eslint-plugin-react-hooks 7.1.1, @next/eslint-plugin-next 16.3.8,
+Prettier 3.9.9, Vitest 5.0.3 with Vite 8.3.2, esbuild 0.28.2, tsx
+4.23.15, expo-doctor 1.20.4. GitHub Actions: `actions/checkout@v7`,
+`actions/setup-node@v7`, `pnpm/action-setup@v6` (latest major tags).
 
 ## 4. Backend framework recommendation: Fastify
 
@@ -424,7 +442,7 @@ Goal: identical PostgreSQL major version everywhere; no SQLite or fakes.
 `postgresql-16` **server** package (verified 2026-10-04: `initdb`,
 `pg_ctl`, `postgres` present under `/usr/lib/postgresql/16/bin`; a
 throwaway cluster started successfully). No server runs by default.
-Phase 1 adds `scripts/db-local.sh` that:
+`scripts/db-local.sh` (Phase 1):
 - creates a cluster **outside the repository** (default
   `/var/tmp/captain-pg16`, override `CAPTAIN_PG_DIR`). If the script runs as
   root, the cluster is owned by the `postgres` OS user and the server runs
@@ -436,15 +454,18 @@ Phase 1 adds `scripts/db-local.sh` that:
 - is idempotent: an existing cluster is reused, a running server is left
   running;
 - is invoked by `scripts/cloud-setup.sh` from a Claude Code SessionStart
-  hook.
+  hook (`.claude/settings.json`). See `docs/cloud-setup.md`.
 If the binaries are missing in a future image, the script fails with a
 clear message naming the package (`postgresql-16`).
 
 **GitHub Actions:** `services: postgres:16` container with health check;
 `DATABASE_URL` points at it. Same migrations, same tests.
 
-**Tests:** integration tests run migrations once, then each test runs in a
-transaction rolled back at the end (or uses a fresh schema per worker).
+**Tests:** `@captain/db/testing` `createTestDatabase()` creates a fresh,
+uniquely named database per test file on the server named by
+`TEST_DATABASE_ADMIN_URL` (default: the local cluster) and drops it
+afterwards. It refuses `APP_ENV=staging|production` and non-local hosts.
+Later phases may add per-test transactions on top.
 PostGIS: not required until zones are decided (**[OPEN D-ZONES]**); if
 adopted, add `postgresql-16-postgis-3` (available in apt, not installed) and
 use the `postgis/postgis:16-*` image in CI.

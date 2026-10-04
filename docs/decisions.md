@@ -32,6 +32,12 @@ make them configurable and reference the ID.
 | R-23 | No command that could lock wheels or disable propulsion is ever sent while a scooter may be moving. Such commands require a stationary-state check defined from supplier docs. Until then they exist only in the simulator. | 2026-10-04 | Owner requirement; rider safety. |
 | R-24 | No automatic retries of physical device commands unless supplier docs state they are idempotent and safe. | 2026-10-04 | Motion safety; unknown protocol. |
 
+| R-25 | pnpm `autoInstallPeers: false`; Expo-required peers declared explicitly at SDK 57 versions. | 2026-10-04 | Auto-installed peers broke SDK 57 version alignment (architecture §3). |
+| R-26 | API and IoT gateway ship as self-contained esbuild bundles. | 2026-10-04 | pnpm isolated layout; verified by running the bundle outside the repo. |
+| R-27 | Local dev/test PostgreSQL cluster lives in `/var/tmp/captain-pg16` (outside the repo), port 54329, trust auth on 127.0.0.1 only. | 2026-10-04 | Throwaway container; no secrets needed; cannot collide with a system server. |
+| R-28 | Each DB test file gets a fresh database via `createTestDatabase()`, which refuses staging/production and non-local hosts. | 2026-10-04 | Real PostgreSQL isolation without Docker. |
+| R-29 | `APP_ENV` has no default and must be set explicitly. | 2026-10-04 | A missing value must never become `development` (which allows fakes) on a production host. |
+
 ## Unresolved (owner decisions required)
 
 | ID | Question | Needed by phase | Notes / current handling |

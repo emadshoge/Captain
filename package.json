@@ -1,0 +1,33 @@
+{
+  "name": "captain",
+  "private": true,
+  "description": "Captain scooter-sharing platform monorepo",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0 <23",
+    "pnpm": "10.28.0"
+  },
+  "scripts": {
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "pnpm -r --workspace-concurrency=2 run typecheck",
+    "test": "pnpm -r --workspace-concurrency=1 run test",
+    "build": "pnpm -r --workspace-concurrency=2 run build",
+    "mobile:check": "pnpm --filter @captain/rider-mobile run check",
+    "check": "pnpm run format && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run mobile:check",
+    "setup:cloud": "bash scripts/cloud-setup.sh",
+    "db:local": "bash scripts/db-local.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.3.8",
+    "@types/node": "22.20.5",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0"
+  }
+}
