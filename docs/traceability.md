@@ -84,11 +84,11 @@ Updated at the end of every phase.
 
 | Req | Requirement | Status | Phase |
 |---|---|---|---|
-| R1 | Explicit state machine incl. reservation, pause, review | planned | 8 |
-| R2 | One active ride per rider; exclusive scooter | implemented at DB level (partial unique indexes); engine Phase 8 | 3/8 |
-| R3 | Idempotent start/end; pricing snapshots; server time | planned | 8 |
-| R4 | Insufficient balance blocks start | planned | 8 |
-| R5 | Recovery, timeouts, late acks → review, no unsafe hardware action | partial: command timeouts + late-ack incidents implemented (Phase 6); ride recovery Phase 8 | 6/8 |
+| R1 | Explicit state machine incl. reservation, pause, review | implemented + tested (`apps/api/test/rides.test.ts`; simulated devices) | 8 |
+| R2 | One active ride per rider; exclusive scooter | implemented + tested (concurrent start races) | 3/8 |
+| R3 | Idempotent start/end; pricing snapshots; server time | implemented + tested | 8 |
+| R4 | Insufficient balance blocks start | implemented + tested | 8 |
+| R5 | Recovery, timeouts, late acks → review, no unsafe hardware action | implemented + tested (timeouts, late acks, recovery sweep, alerts only) | 6/8 |
 
 ## IoT (J)
 

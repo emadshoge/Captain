@@ -765,6 +765,9 @@ describe('development outbox', () => {
       COOKIE_SECURE: 'true',
       STAFF_MFA_REQUIRED: 'true',
       INTERNAL_API_TOKEN: 'i'.repeat(40),
+      RIDE_BILLING_CUTOFF: 'end_request',
+      RIDE_END_CONFIRMATION: 'device_lock',
+      RIDE_PARKING_POLICY: 'flag',
     });
     const none = await staging.request({ method: 'GET', url: '/v1/dev/outbox?destination=x' });
     expect(none.statusCode).toBe(404);

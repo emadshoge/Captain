@@ -1,7 +1,8 @@
 import type { ApiConfig } from '@captain/config';
 import type pg from 'pg';
-import { type CommandListener, type CommandRow, openAlert } from '../fleet/service';
+import { type CommandRow, notifyCommandListeners, openAlert } from '../fleet/service';
 import { withTransaction } from '../lib/db';
+import { sweepReservations, sweepRides } from '../rides/engine';
 import { reconcilePayments } from '../wallet/payments';
 import type { PaymentProvider } from '../wallet/providers';
 
@@ -35,19 +36,11 @@ export const sweepCommandTimeouts: Sweep = async ({ pool, now }) => {
         rideId: command.ride_id,
         data: { type: command.type, simulated: command.is_simulated },
       });
-      for (const listener of timeoutListeners) {
-        await listener(client, command, { outcome: 'timeout', late: false }, at);
-      }
+      await notifyCommandListeners(client, command, { outcome: 'timeout', late: false }, at);
     }
     return rows.length;
   });
 };
-
-/** The ride engine (Phase 8) registers here to react to command timeouts. */
-const timeoutListeners: CommandListener[] = [];
-export function onCommandTimeout(listener: CommandListener) {
-  timeoutListeners.push(listener);
-}
 
 /** Devices silent for DEVICE_OFFLINE_SECONDS are marked offline. */
 export const sweepOfflineDevices: Sweep = async ({ pool, config, now }) => {
@@ -141,7 +134,13 @@ export const sweepPaymentReconciliation: Sweep = async (deps) => {
   });
 };
 
+/** Ride recovery, duration and low-balance alerts (never device commands). */
+export const sweepRideRecovery: Sweep = (deps) => sweepRides(deps);
+export const sweepExpiredReservations: Sweep = (deps) => sweepReservations(deps);
+
 export const SWEEPS: Record<string, Sweep> = {
+  reservations: sweepExpiredReservations,
+  rideRecovery: sweepRideRecovery,
   paymentReconciliation: sweepPaymentReconciliation,
   commandTimeouts: sweepCommandTimeouts,
   offlineDevices: sweepOfflineDevices,
