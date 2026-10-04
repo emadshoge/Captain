@@ -9,6 +9,7 @@ await build({
     server: 'src/server.ts',
     worker: 'src/worker.ts',
     'cli/staff': 'src/cli/staff.ts',
+    'cli/migrate': '../../packages/db/src/cli/migrate.ts',
   },
   outdir: 'dist',
   bundle: true,

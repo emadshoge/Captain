@@ -1,0 +1,14 @@
+# Keep build contexts small and free of secrets.
+**/node_modules
+**/.next
+**/dist
+**/.expo
+**/test-results
+**/playwright-report
+.git
+.local
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key

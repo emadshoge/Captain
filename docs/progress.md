@@ -6,8 +6,8 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–12 (Phase 12 = performance and resilience).
-- **Next phase:** Phase 13 — Deployment preparation (staging deploy blocked)
+- **Completed phases:** 0–13 (Phase 13 = deployment preparation; staging deploy blocked).
+- **Next phase:** Phase 14 — Real provider integrations (blocked: B1, B2, B3, B4)
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
@@ -16,10 +16,47 @@ was not tested, blockers, and the next task.
   (PR #7); Phase 8 `claude/phase-8-rides` (PR #8); Phase 9
   `claude/phase-9-mobile` (PR #9); Phase 10 `claude/phase-10-rider-web`
   (PR #10); Phase 11 `claude/phase-11-staff-web` (PR #11); Phase 12
-  `claude/phase-12-performance` (stacked on Phase 11).
+  `claude/phase-12-performance` (PR #12); Phase 13 `claude/phase-13-deployment`
+  (stacked on Phase 12).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 13: Deployment preparation
+CI for Phase 12: run 37233209638 on `2267f18`, all jobs passed (including
+the new resilience job).
+
+Changed:
+- Container images (R-89): `docker/node-service.Dockerfile` (API, worker,
+  migrations, gateway), `docker/web.Dockerfile` (standalone Next.js),
+  `.dockerignore`; standalone output behind `NEXT_STANDALONE=1`.
+- Release migration command (R-90): `dist/cli/migrate.js` with
+  `--status` and the production confirmation; tests.
+- Backup/restore drill (R-91): `pnpm --filter @captain/api backup-drill`.
+- CI: `images` job (build all four images, smoke test migrations, API
+  readiness, worker, gateway health, both web apps, production guard);
+  backup drill added to `resilience` (PostgreSQL 16 client).
+- Docs: `docs/deployment.md` (processes, hosting requirements and
+  evaluation matrix without invented prices, environments, configuration
+  names, release and rollback, DNS/HTTPS, webhooks, gateway networking,
+  monitoring/alerts, backups), `docs/runbooks.md` (R1–R9),
+  `docs/store-release.md`.
+
+Executed checks:
+- `pnpm check` green; migrate command tests 3/3.
+- Bundled `dist/cli/migrate.js`: `--status` listed 5 pending, migration
+  applied, production refused without confirmation (throwaway database).
+- Standalone staff web server served `/sign-in` and static assets.
+- Backup drill PASS (dump 112 ms, restore 300 ms; counts equal; ledger
+  balanced; append-only trigger and balanced-journal check present).
+- Docker is not available in the cloud session: image builds are verified
+  only by the CI `images` job.
+
+Blocked: staging deploy (B7 hosting + authorization, B8 DNS).
+
+Next: Phase 14 (real providers) is blocked on documentation and accounts;
+Phase 15 (IoT) on supplier docs; continue with Phase 16 checklist work and
+the final report.
 
 ### 2026-10-04 — Phase 12: Performance and resilience
 CI for Phase 11: run 37232482695 on `c6802c7`, all jobs passed (rider and
