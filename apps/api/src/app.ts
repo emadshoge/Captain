@@ -16,6 +16,9 @@ import { createOtpSenders, type OtpSenders } from './auth/senders';
 import type { AuthDeps } from './auth/service';
 import { devRoutes } from './dev/routes';
 import { registerErrorHandling } from './errors';
+import { internalRoutes } from './fleet/internal-routes';
+import { riderFleetRoutes } from './fleet/rider-routes';
+import { fleetStaffRoutes } from './fleet/staff-routes';
 import { riderAccountRoutes } from './rider/routes';
 import { healthRoutes } from './routes/health';
 import { staffRoutes } from './staff/routes';
@@ -111,6 +114,9 @@ export async function buildApp({
   await app.register(riderAccountRoutes, { deps });
   await app.register(staffRoutes, { deps });
   await app.register(adminRoutes, { deps });
+  await app.register(riderFleetRoutes, { deps });
+  await app.register(fleetStaffRoutes, { deps });
+  await app.register(internalRoutes, { deps });
   if (config.APP_ENV === 'development' || config.APP_ENV === 'test') {
     await app.register(devRoutes, { senders: otpSenders });
   }

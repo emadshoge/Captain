@@ -6,15 +6,92 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–5 (Phase 5 = authorization, staff management, audit).
-- **Next phase:** Phase 6 — Fleet, zones, devices and the simulator
+- **Completed phases:** 0–6 (Phase 6 = fleet, zones, devices, simulator).
+- **Next phase:** Phase 7 — Wallet ledger and payments
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
-  `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (stacked on Phase 4).
+  `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (PR #5);
+  Phase 6 `claude/phase-6-fleet` (stacked on Phase 5).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 6: Fleet, zones, devices and the simulator
+CI for Phase 5: run 37212735971 on `f926445`, both jobs passed.
+
+Changed:
+- `@captain/domain` geometry: GeoJSON validation, point-in-polygon
+  (holes, MultiPolygon), haversine, bounding boxes, coordinate checks.
+- Fleet service: one availability rule (R-53), nearby search, QR/code
+  lookup with plain-language reasons, zone status, alerts with dedupe,
+  telemetry ingestion with validation (R-54), and the command lifecycle:
+  queued → sent → acked/nacked/timed_out, with late and duplicate
+  handling and a late-unlock incident.
+- Rider routes: nearby, lookup, zones by bbox.
+- Operator routes (fleet.read, fleet.status.update,
+  device.command.service, maintenance.manage, alerts.manage): scooter
+  list/filters/detail, status changes, service commands with motion
+  safety (R-55), alerts, maintenance and repositioning tasks, zones.
+- Admin routes (fleet.manage, zones.manage): scooter onboarding (random
+  QR token), device registration (simulated refused in production),
+  assign/unassign, retire, simulation scenarios (dev/test only), zone
+  create/update with versioning. All audited.
+- Internal API `/internal/v1/*` with service token (R-51).
+- Worker process + sweeps behind an advisory lock (R-52); bundled as
+  `dist/worker.js`.
+- IoT gateway: `DeviceAdapter` interface (protocol-neutral),
+  `SimulatedDeviceAdapter` (labelled; scenarios ack/nack/silence/delay,
+  speed), internal API client, `Gateway` loop (command polling, result
+  retry with 4xx drop, bounded telemetry buffer, device sync), health
+  stats. No supplier protocol.
+- Config: `INTERNAL_API_TOKEN` (required in staging/production, dev
+  token refused in production), fleet thresholds, gateway poll/telemetry
+  settings.
+- Security fix found by tests: staff/rider authorization now runs at
+  `onRequest`, before body validation (R-56).
+
+Executed checks:
+- API tests 100 (17 new fleet tests) on PostgreSQL 16.14:
+  - discovery ordering/radius/stale/low/offline;
+  - lookup by code/QR and reasons;
+  - production hides simulated devices;
+  - invalid telemetry stored but not applied;
+  - out-of-order and low-battery alerts;
+  - internal token enforcement;
+  - command ack/duplicate;
+  - timeout → late unlock ack → incident with no automatic command;
+  - motion safety (moving, unknown speed, stationary, supplier device
+    unsupported);
+  - operator filters/status protection/audit;
+  - maintenance and alerts;
+  - retire/reassign;
+  - simulation scenarios;
+  - zones;
+  - sweeps and the advisory lock;
+  - the operator vs admin fleet permission matrix.
+- Gateway tests 11: simulator scenarios and movement, gateway against a
+  fake internal API (token, delivery, result retry/drop, telemetry
+  buffer bounds).
+- Domain tests 33 (geometry).
+- **Three-process smoke** with the built bundles (API, worker, simulated
+  gateway) on the local dev DB:
+  - a queued command was acked by the simulator (`acked|SIM_OK`);
+  - 37 telemetry rows in 10 s, labelled simulated, updated all 12
+    fixture scooters;
+  - zero error logs.
+- A real ordering bug was found and fixed: the latest-telemetry
+  tiebreaker for the stationary check.
+
+Not tested / not done:
+- **Real hardware:** BLOCKED on supplier protocol, device and SIM (B6,
+  D-IOT). The gateway has no supplier adapter; production runs it with
+  `DEVICE_ADAPTER=none`.
+- **Mapbox rendering:** clients in Phases 9–10; tokens B5.
+- **GPS accuracy:** not modelled. Parking validation and zone policy
+  depend on D-ZONES/D-PARK.
+- **Telemetry volume and nearby-search performance:** Phase 12.
+
 
 ### 2026-10-04 — Phase 5: Authorization, staff management, audit
 CI for Phase 4: run 37212061513 on `cea9bf4`, both jobs passed.

@@ -3,6 +3,7 @@ import { ConfigError } from './errors';
 
 // Duplicated from env.ts to avoid a runtime import cycle.
 const DEV_AUTH_SECRET = 'captain-development-only-auth-secret-not-for-real-use';
+const DEV_INTERNAL_API_TOKEN = 'captain-development-only-internal-token-not-for-real-use';
 
 /** Provider values that fake or simulate a real integration. */
 export const FAKE_PROVIDER_VALUES: ReadonlySet<string> = new Set(['fake', 'log_only', 'simulated']);
@@ -38,6 +39,9 @@ export function assertProductionSafe(
   }
   if (config.AUTH_SECRET === DEV_AUTH_SECRET) {
     issues.push('AUTH_SECRET: the development secret is not allowed in production');
+  }
+  if (config.INTERNAL_API_TOKEN === DEV_INTERNAL_API_TOKEN) {
+    issues.push('INTERNAL_API_TOKEN: the development token is not allowed in production');
   }
   for (const key of PROVIDER_KEYS) {
     const value = config[key];

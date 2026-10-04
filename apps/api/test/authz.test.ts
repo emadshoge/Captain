@@ -113,6 +113,23 @@ describe('authorization matrix (backend enforcement)', () => {
     },
   );
 
+  it('authorizes before validating, so unauthorized callers learn nothing about schemas', async () => {
+    const op = await operator.call('POST', '/v1/admin/staff', { nonsense: true });
+    expect(op.statusCode).toBe(403);
+    const anon = await t.request({
+      method: 'POST',
+      url: '/v1/admin/staff',
+      payload: { nonsense: true },
+    });
+    expect(anon.statusCode).toBe(401);
+    const rider = await t.request({
+      method: 'PATCH',
+      url: '/v1/rider/me',
+      payload: { displayName: 5 },
+    });
+    expect(rider.statusCode).toBe(401);
+  });
+
   it('lets any staff member read their own profile', async () => {
     const me = await operator.call('GET', '/v1/staff/me');
     expect(me.statusCode).toBe(200);

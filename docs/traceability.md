@@ -22,6 +22,7 @@ Updated at the end of every phase.
 | F9 | Secure cookies + CSRF | `apps/api/src/auth/http.ts` | cookie/CSRF/Origin tests | implemented | |
 | F10 | Bounded request sizes | Fastify `bodyLimit` | 413 test | implemented | default 1 MiB |
 | F11 | Health/readiness without secrets | `apps/api/src/routes/health.ts` | health tests | implemented | |
+| F17 | Background worker (sweeps, single instance) | `apps/api/src/worker*` | fleet tests (sweeps, advisory lock) | implemented | |
 | F12 | Audit records for sensitive staff actions | `apps/api/src/lib/audit.ts` + staff/admin routes | `authz.test.ts` | implemented | append-only (DB) |
 | F13 | Reproducible cloud setup + PostgreSQL cluster | `scripts/*`, `.claude/` | manual runs (progress.md) | implemented | hook active once on `main` |
 | F14 | CI: format, lint, typecheck, tests (PG), builds, Expo checks | `.github/workflows/ci.yml` | CI runs | implemented | |
@@ -73,9 +74,9 @@ Updated at the end of every phase.
 
 | Req | Requirement | Status | Phase / blocker |
 |---|---|---|---|
-| M1 | Nearby scooters, details, freshness | planned | 6 |
-| M2 | Zones (service/parking/restricted) server-side validation | planned | 6 |
-| M3 | Fleet onboarding, assignment, maintenance, offline | planned | 6 |
+| M1 | Nearby scooters, details, freshness | implemented (`/v1/rider/scooters/nearby`, lookup with reasons) | 6 |
+| M2 | Zones (service/parking/restricted) server-side validation | implemented (GeoJSON validation, point-in-polygon, bbox serving, service-area alerts); real zones blocked on D-ZONES | 6 |
+| M3 | Fleet onboarding, assignment, maintenance, offline | implemented (admin onboarding, assignment, retire, maintenance/repositioning tasks, alerts, offline/stale sweeps) | 6 |
 | M4 | QR + manual code | planned | 9/10 |
 | M5 | Mapbox web + mobile | planned; real tokens blocked (B5) | 9/10 |
 
@@ -87,14 +88,14 @@ Updated at the end of every phase.
 | R2 | One active ride per rider; exclusive scooter | implemented at DB level (partial unique indexes); engine Phase 8 | 3/8 |
 | R3 | Idempotent start/end; pricing snapshots; server time | planned | 8 |
 | R4 | Insufficient balance blocks start | planned | 8 |
-| R5 | Recovery, timeouts, late acks → review, no unsafe hardware action | planned | 6/8 |
+| R5 | Recovery, timeouts, late acks → review, no unsafe hardware action | partial: command timeouts + late-ack incidents implemented (Phase 6); ride recovery Phase 8 | 6/8 |
 
 ## IoT (J)
 
 | Req | Requirement | Status | Phase / blocker |
 |---|---|---|---|
-| I1 | Adapter interface + labelled simulator | planned | 6 |
-| I2 | Internal authenticated gateway↔API contract | planned | 6 |
+| I1 | Adapter interface + labelled simulator | implemented + **simulated** (3-process smoke: API + worker + gateway) | 6 |
+| I2 | Internal authenticated gateway↔API contract | implemented (`/internal/v1`, service token) | 6 |
 | I3 | Real TCP protocol | **blocked** (D-IOT, B6) | 15 |
 
 ## Clients (K, L)

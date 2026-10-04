@@ -30,7 +30,11 @@ describe('loadApiConfig', () => {
       expect(() =>
         loadApiConfig({
           ...(APP_ENV === 'staging'
-            ? { AUTH_SECRET: 's'.repeat(32), CORS_ORIGINS: 'https://staging.captain.et' }
+            ? {
+                AUTH_SECRET: 's'.repeat(32),
+                INTERNAL_API_TOKEN: 'i'.repeat(32),
+                CORS_ORIGINS: 'https://staging.captain.et',
+              }
             : {}),
           APP_ENV,
           DATABASE_URL: DB,
@@ -49,6 +53,7 @@ const PROD = {
   APP_ENV: 'production',
   DATABASE_URL: 'postgres://db.internal/captain',
   AUTH_SECRET: 'p'.repeat(40),
+  INTERNAL_API_TOKEN: 'i'.repeat(40),
   CORS_ORIGINS: 'https://app.captain.et,https://staff.captain.et',
   AUTH_RIDER_CHANNELS: 'email',
   OTP_EMAIL_PROVIDER: 'smtp',
@@ -75,9 +80,13 @@ describe('production safety guard', () => {
   });
 
   it('rejects a simulated device adapter for the gateway in production', () => {
-    expect(() => loadGatewayConfig({ APP_ENV: 'production', DEVICE_ADAPTER: 'simulated' })).toThrow(
-      /DEVICE_ADAPTER/,
-    );
+    expect(() =>
+      loadGatewayConfig({
+        APP_ENV: 'production',
+        INTERNAL_API_TOKEN: 'g'.repeat(40),
+        DEVICE_ADAPTER: 'simulated',
+      }),
+    ).toThrow(/DEVICE_ADAPTER/);
   });
 
   it.each([
@@ -107,9 +116,13 @@ describe('Phase 2 configuration hardening', () => {
 
   it.each(['debug', 'trace'])('rejects LOG_LEVEL=%s in production', (level) => {
     expect(() => loadApiConfig({ ...prod, LOG_LEVEL: level })).toThrow(/LOG_LEVEL/);
-    expect(() => loadGatewayConfig({ APP_ENV: 'production', LOG_LEVEL: level })).toThrow(
-      /LOG_LEVEL/,
-    );
+    expect(() =>
+      loadGatewayConfig({
+        APP_ENV: 'production',
+        INTERNAL_API_TOKEN: 'g'.repeat(40),
+        LOG_LEVEL: level,
+      }),
+    ).toThrow(/LOG_LEVEL/);
   });
 
   it.each(['info', 'warn', 'error'])('allows LOG_LEVEL=%s in production', (level) => {
@@ -222,5 +235,34 @@ describe('Phase 4 authentication and browser settings', () => {
     } catch (error) {
       expect((error as Error).message).not.toContain('smtp-secret-value');
     }
+  });
+});
+
+describe('Phase 6 fleet and internal settings', () => {
+  it('requires a real internal token in staging/production for API and gateway', () => {
+    const env: Record<string, string> = { ...PROD };
+    delete env.INTERNAL_API_TOKEN;
+    expect(() => loadApiConfig(env)).toThrow(/INTERNAL_API_TOKEN/);
+    expect(() => loadGatewayConfig({ APP_ENV: 'production' })).toThrow(/INTERNAL_API_TOKEN/);
+    expect(() =>
+      loadApiConfig({
+        ...PROD,
+        INTERNAL_API_TOKEN: 'captain-development-only-internal-token-not-for-real-use',
+      }),
+    ).toThrow(/development token/);
+    expect(
+      loadGatewayConfig({ APP_ENV: 'production', INTERNAL_API_TOKEN: 'g'.repeat(40) }).APP_ENV,
+    ).toBe('production');
+  });
+
+  it('has bounded fleet thresholds', () => {
+    const config = loadApiConfig({ APP_ENV: 'development', DATABASE_URL: DB });
+    expect(config).toMatchObject({
+      COMMAND_TIMEOUT_SECONDS: 20,
+      FLEET_TELEMETRY_STALE_SECONDS: 300,
+    });
+    expect(() =>
+      loadApiConfig({ APP_ENV: 'development', DATABASE_URL: DB, COMMAND_TIMEOUT_SECONDS: '1' }),
+    ).toThrow(/COMMAND_TIMEOUT_SECONDS/);
   });
 });

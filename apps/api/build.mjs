@@ -5,7 +5,11 @@ import { build } from 'esbuild';
 
 rmSync('dist', { recursive: true, force: true });
 await build({
-  entryPoints: { server: 'src/server.ts', 'cli/staff': 'src/cli/staff.ts' },
+  entryPoints: {
+    server: 'src/server.ts',
+    worker: 'src/worker.ts',
+    'cli/staff': 'src/cli/staff.ts',
+  },
   outdir: 'dist',
   bundle: true,
   platform: 'node',
