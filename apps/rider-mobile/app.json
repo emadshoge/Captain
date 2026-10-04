@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Captain",
+    "slug": "captain",
+    "scheme": "captain",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["android", "ios"],
+    "plugins": ["expo-router"],
+    "ios": {
+      "bundleIdentifier": "et.captain.rider"
+    },
+    "android": {
+      "package": "et.captain.rider"
+    }
+  }
+}
