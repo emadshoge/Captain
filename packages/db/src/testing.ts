@@ -66,3 +66,19 @@ export async function createTestDatabase(
     },
   };
 }
+
+/** Fresh database with all migrations applied (for integration tests). */
+export async function createMigratedTestDatabase(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const db = await createTestDatabase(env);
+  const { createPool } = await import('./client');
+  const { runMigrations } = await import('./migrations');
+  const pool = createPool({ connectionString: db.url, max: 1 });
+  try {
+    await runMigrations(pool);
+  } finally {
+    await pool.end();
+  }
+  return db;
+}

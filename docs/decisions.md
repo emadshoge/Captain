@@ -44,6 +44,12 @@ make them configurable and reference the ID.
 | R-33 | `LOG_LEVEL=debug/trace` refused in production. | 2026-10-04 | Verbose logs increase exposure risk. |
 | R-34 | Phase 2 branched from PR #1's head and its PR targets the PR #1 branch (stacked), because PR #1 is not merged yet. | 2026-10-04 | Owner had no preference; keeps the Phase 2 diff reviewable and merges nothing. |
 
+| R-35 | Phase 3 schema: business rules that protect money, safety and audit are enforced in PostgreSQL (constraints, deferred balance trigger, append-only triggers, immutability triggers, grants). | 2026-10-04 | Defence in depth; application bugs cannot corrupt the ledger. |
+| R-36 | Runtime role `captain_app` (NOLOGIN group); runtime logins are members; migration owner separate. | 2026-10-04 | Least privilege (master order E). |
+| R-37 | Development fixtures are labelled `DEV FIXTURE`, simulated, and refused outside development/test. | 2026-10-04 | Exercise flows without setting production policy. |
+| R-38 | Zones stored as GeoJSON + bounding box with server-side point-in-polygon in the API; PostGIS deferred. | 2026-10-04 | Avoids an extension many hosts gate; revisit for large zone sets. |
+| R-39 | Plan revision 2: master work order phases 3–16; stacked branch + PR per phase; merge in phase order. | 2026-10-04 | Owner master order. |
+
 ## Unresolved (owner decisions required)
 
 | ID | Question | Needed by phase | Notes / current handling |
@@ -57,6 +63,12 @@ make them configurable and reference the ID.
 | D-PARK | Parking validation: what is checked (zone, photo, GPS accuracy), what happens when parking is outside allowed areas (reject end, fee, allow with flag). | Phase 10 | Feature-flagged; depends on D-ZONES. |
 | D-ENDCONF | Device completion confirmation: what signal counts (lock state, ignition off, other), timeout values, and whether a rider may start another ride while a previous one is in operator review. | Phase 10 + supplier docs | Depends on D-IOT. |
 | D-ZONES | Service area, parking/no-parking zones, out-of-zone fees, parking photo requirement. Adopt PostGIS? | Phase 9/10 | Zone checks feature-flagged off until decided. |
+| D-ROUND | Billing rounding (per started minute vs per second) and pause charge. | Phase 8 | `billing_increment_seconds`, `pause_per_minute_santim` per plan. |
+| D-RESERVE | Reservations: allowed? window? fee? | Phase 8 | `reservation_minutes`/`reservation_fee_santim` per plan (null = off). |
+| D-MAXRIDE | Maximum ride duration and action at the limit. | Phase 8 | `max_ride_minutes`; alert/notify only, never hardware action. |
+| D-UNPAID | Negative balances / unpaid debt handling and collection. | Phase 8 | `low_balance_floor_santim`; start blocked while balance below minimum. |
+| D-LEGAL | Approved terms, privacy, support wording and translations. | Phase 9–11, launch | Placeholders marked DRAFT – NOT APPROVED. |
+| D-DNS | Confirm captain.et ownership and DNS access. | Phase 13 | Instructions prepared; not applied. |
 | D-REFUND | Refund rules: failed unlock, device faults, completion failures, operator-review outcomes, disputes; refund to wallet vs to original payment; approval workflow. | Phase 10 / admin | Admin adjustments with reason only; maker-checker recommended. |
 | D-ELIG | Rider eligibility: minimum age, ID verification, terms. | Phase 4 | `eligibility_status` field reserved. |
 | D-UI | Brand colors, logo, app icon, splash, typography. | Phase 11 (mobile UI) | Neutral placeholder theme tokens. |

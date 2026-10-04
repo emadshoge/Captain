@@ -53,6 +53,14 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
+      - name: Schema drift (Drizzle schema vs committed migrations)
+        run: |
+          pnpm --filter @captain/db exec drizzle-kit generate --name drift_check
+          if [ -n "$(git status --porcelain packages/db/migrations)" ]; then
+            echo "Schema and migrations are out of sync. Run: pnpm --filter @captain/db db:generate" >&2
+            git status --porcelain packages/db/migrations >&2
+            exit 1
+          fi
       - name: Test (PostgreSQL 16 service)
         run: pnpm test
       - name: Build (API, IoT gateway, Next.js apps)
