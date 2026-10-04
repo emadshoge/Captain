@@ -20,6 +20,8 @@ import { internalRoutes } from './fleet/internal-routes';
 import { riderFleetRoutes } from './fleet/rider-routes';
 import { fleetStaffRoutes } from './fleet/staff-routes';
 import { riderAccountRoutes } from './rider/routes';
+import { initRideEngine } from './rides/engine';
+import { riderRideRoutes, staffRideRoutes } from './rides/routes';
 import type { PaymentDeps } from './wallet/payments';
 import { createPaymentProvider, type PaymentProvider } from './wallet/providers';
 import {
@@ -128,6 +130,11 @@ export async function buildApp({
   await app.register(riderFleetRoutes, { deps });
   await app.register(fleetStaffRoutes, { deps });
   await app.register(internalRoutes, { deps });
+
+  const rideDeps = { config, pool: dbPool, now: deps.now };
+  initRideEngine(rideDeps);
+  await app.register(riderRideRoutes, { deps: rideDeps, authDeps: deps });
+  await app.register(staffRideRoutes, { deps: rideDeps });
 
   const paymentDeps: PaymentDeps = {
     config,

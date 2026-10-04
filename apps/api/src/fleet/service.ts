@@ -439,7 +439,12 @@ export type CommandListener = (
 
 const commandListeners: CommandListener[] = [];
 export function onCommandResolved(listener: CommandListener) {
-  commandListeners.push(listener);
+  if (!commandListeners.includes(listener)) commandListeners.push(listener);
+}
+
+/** Runs the registered listeners (also used by the timeout sweep). */
+export async function notifyCommandListeners(...args: Parameters<CommandListener>) {
+  for (const listener of commandListeners) await listener(...args);
 }
 
 export async function createCommand(

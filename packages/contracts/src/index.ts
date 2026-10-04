@@ -5,3 +5,4 @@ export * from './staff';
 export * from './fleet';
 export * from './internal';
 export * from './wallet';
+export * from './rides';

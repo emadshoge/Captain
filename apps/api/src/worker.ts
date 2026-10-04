@@ -7,6 +7,7 @@
 import { type ApiConfig, ConfigError, loadApiConfig } from '@captain/config';
 import { createPool } from '@captain/db';
 import { createLogger, redactDeep } from '@captain/logging';
+import { initRideEngine } from './rides/engine';
 import { runSweepsOnce } from './worker/sweeps';
 import { createPaymentProvider } from './wallet/providers';
 
@@ -28,6 +29,7 @@ const logger = createLogger({
 });
 const pool = createPool({ connectionString: config.DATABASE_URL, max: 3 });
 const provider = createPaymentProvider(config);
+initRideEngine({ config, pool, now: () => new Date() });
 const INTERVAL_MS = 5_000;
 let stopping = false;
 

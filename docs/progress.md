@@ -6,17 +6,68 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–7 (Phase 7 = wallet ledger and payments core; Chapa blocked).
-- **Next phase:** Phase 8 — Pricing and ride engine
+- **Completed phases:** 0–8 (Phase 8 = pricing and ride engine, simulated devices).
+- **Next phase:** Phase 9 — Rider mobile app and EAS configuration
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
   `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (PR #5);
   Phase 6 `claude/phase-6-fleet` (PR #6); Phase 7 `claude/phase-7-wallet`
-  (stacked on Phase 6).
+  (PR #7); Phase 8 `claude/phase-8-rides` (stacked on Phase 7).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 8: Pricing and ride engine
+CI for Phase 7: run 37214437782 on `26afeb6`, both jobs passed.
+
+Changed:
+- `@captain/domain` pricing: `timeCharge`, `computeFare`, `chargeableAmount`
+  (integer santim, round up to billing increment).
+- Ride engine (`apps/api/src/rides/engine.ts`): start (R-64/R-65), unlock
+  outcome handling, pause/resume (billing only), end request with parking
+  policy and stationary check (R-66/R-67), settlement exactly once with
+  floor and unpaid alert (R-69), operator review/resolve (R-71),
+  reservations (R-72), recovery and alert sweeps (R-70/R-71).
+- Rider API: pricing, start (Idempotency-Key, rate limit), current,
+  history, receipt, pause, resume, end, reservations.
+- Staff API: ride list/detail with events (rides.read), send to review /
+  resolve (rides.review), pricing plans list/create/activate
+  (pricing.manage); all mutations audited.
+- Config: `RIDE_BILLING_CUTOFF`, `RIDE_END_CONFIRMATION`,
+  `RIDE_PARKING_POLICY` (required in staging/production),
+  `RIDE_COMPLETION_TIMEOUT_SECONDS`.
+- Command listener registry moved into the fleet service so the timeout
+  sweep and device results share one path.
+
+Executed checks:
+- `pnpm check` green: API tests 146 (22 new ride tests), domain 41
+  (8 new pricing), config 41, db 29, gateway 11.
+- Ride tests cover: no pricing → 503; plan versioning and permissions;
+  production refuses fixture pricing and missing ride policy config;
+  full lifecycle with exact event sequence, idempotent start replay,
+  idempotent end, duplicate lock ack, single journal; billing cutoff at
+  completion; immediate completion; pause billing with no device command;
+  end refused while moving or with stale telemetry (no lock command);
+  cross-rider 404; minimum balance; nack → no charge, scooter available;
+  timeout → no charge, maintenance, incidents, late ack ignored, no
+  automatic command; two riders one scooter; concurrent starts by one
+  rider; lock nack → review → operator resolve with bounded cutoff;
+  operator close without charge; supplier device → review without
+  command; crash recovery (acked command, stuck end request); long ride
+  and low balance → alerts only, then settlement to the floor with
+  unpaid remainder; reservations (exclusive, converted, expired,
+  cancelled); parking reject/flag; operator vs pricing permissions;
+  ledger balanced.
+
+Not verified / simulated:
+- All ride flows use the **simulated** device adapter. Real supplier
+  unlock/lock, stationary detection and parking accuracy are blocked
+  (D-IOT). Pricing values are test/DEV FIXTURE data, not business prices
+  (D-PRICE). Billing cutoff, end confirmation and parking rules remain
+  open decisions (D-BILLCUT, D-ENDCONF, D-PARK) behind configuration.
+
+Next: Phase 9 — rider mobile app and EAS configuration.
 
 ### 2026-10-04 — Phase 7: Wallet ledger and payments core
 CI for Phase 6: run 37213641195 on `921d96c`, both jobs passed.

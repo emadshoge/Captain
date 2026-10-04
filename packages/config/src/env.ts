@@ -106,6 +106,18 @@ const apiBaseSchema = baseSchema
     /** Maker-checker: a refund must be approved by a different staff member. */
     REFUNDS_REQUIRE_SECOND_APPROVER: bool.default(true),
 
+    // Rides (Phase 8). Unresolved business rules (D-BILLCUT, D-ENDCONF, D-PARK):
+    // development/test fall back to labelled DEV FIXTURE values; staging and
+    // production must set them explicitly.
+    /** Billing stops at the rider's end request, or when completion is confirmed. */
+    RIDE_BILLING_CUTOFF: z.enum(['end_request', 'completion_confirmed']).optional(),
+    /** What confirms a ride is complete: nothing, or a device lock acknowledgment (stationary check first). */
+    RIDE_END_CONFIRMATION: z.enum(['none', 'device_lock']).optional(),
+    /** Parking check on end request: off, flag (record only) or reject (ride continues). */
+    RIDE_PARKING_POLICY: z.enum(['off', 'flag', 'reject']).optional(),
+    /** A ride stuck between end request and completion longer than this goes to operator review. */
+    RIDE_COMPLETION_TIMEOUT_SECONDS: int(30, 3_600).default(180),
+
     // Browser security
     /** Exact origins allowed by CORS (comma-separated). Required in staging/production. */
     CORS_ORIGINS: csvUrls.optional(),
@@ -149,6 +161,16 @@ export const apiEnvSchema = apiBaseSchema
     }
     if (deployed && !config.REFUNDS_REQUIRE_SECOND_APPROVER)
       issue('REFUNDS_REQUIRE_SECOND_APPROVER', 'must be true in staging/production');
+    if (deployed) {
+      for (const key of [
+        'RIDE_BILLING_CUTOFF',
+        'RIDE_END_CONFIRMATION',
+        'RIDE_PARKING_POLICY',
+      ] as const) {
+        if (!config[key])
+          issue(key, 'required in staging/production (unresolved business decision)');
+      }
+    }
     if (deployed && !config.STAFF_MFA_REQUIRED)
       issue('STAFF_MFA_REQUIRED', 'must be true in staging/production');
     if (config.OTP_EMAIL_PROVIDER === 'smtp') {
