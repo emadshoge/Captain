@@ -11,6 +11,27 @@ was not tested, blockers, and the next task.
 
 ## Log
 
+### 2026-10-04 — Phase 0 corrections (owner review)
+Changed:
+- Ride completion remodelled: `end_requested → completion_pending →
+  completed`, plus `operator_review` and `ride_incidents`. "End ride" is a
+  completion request. Billing cutoff, parking validation, device
+  confirmation, and failure/refund outcomes are recorded as unresolved
+  (D-BILLCUT, D-PARK, D-ENDCONF, D-REFUND). R-21 withdrawn.
+- Device safety: no automatic physical command after a late unlock ack
+  (incident instead, R-22). Motion-affecting commands are never sent while
+  a scooter may be moving (R-23). No automatic retries of physical
+  commands (R-24).
+- Chapa details marked unverified (T-01). Phase 8 blocked until the
+  official docs are available. No Chapa code in Phase 1.
+- Dependencies rechecked against npm registry metadata and the projects'
+  GitHub repositories (official doc sites are proxy-blocked, T-04).
+  TypeScript ~6.0.3 per the Expo SDK 57 template. React is now per app:
+  mobile 19.2.3 (Expo pin), web 19.3.0. Turborepo dropped for now.
+  Admin and operator share `staff-web`.
+- Local PostgreSQL cluster moved outside the repository.
+
+
 ### 2026-10-04 — Phase 0: Documentation and rules
 Changed:
 - Added `CLAUDE.md`, `docs/product-spec.md`, `docs/architecture.md`,

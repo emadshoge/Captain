@@ -20,8 +20,8 @@ trip matching.
 |---|---------|-------|------|
 | 1 | Rider mobile app (Android, iOS) | Riders | Expo / React Native |
 | 2 | Rider web app | Riders | Next.js |
-| 3 | Admin web dashboard | Captain staff (admins) | Next.js |
-| 4 | Operator web dashboard | Field/fleet operators | Next.js |
+| 3 | Admin web dashboard | Captain staff (admins) | Next.js (`staff-web`, `/admin` routes) |
+| 4 | Operator web dashboard | Field/fleet operators | Next.js (shares the `staff-web` app with admin, separate `/operator` routes) |
 | 5 | Backend API | All apps | Node.js (Fastify) + PostgreSQL |
 | 6 | IoT gateway | Scooters (IoT modules) | Node.js; **implemented later from supplier docs** |
 
@@ -95,20 +95,29 @@ never arrives (backend polls verify), duplicate webhook (idempotent).
 ### J5 — Riding
 - Ride screen: elapsed time, running cost estimate, battery, map with
   rider/scooter position, zone warnings, "End ride".
-- Pause/hold (lock temporarily) per **[OPEN D-PAUSE]**.
-- Low balance during ride per **[OPEN D-LOWBAL]**.
+- Pause/hold per **[OPEN D-PAUSE]**. Any physical lock while paused is
+  allowed only when the scooter is documented as stationary.
+- Low balance during ride per **[OPEN D-LOWBAL]**. It never triggers an
+  automatic lock or propulsion cut-off while the scooter is moving.
 - Help/report problem button.
 
 ### J6 — Park and end ride
-1. Tap "End ride" → app checks parking location against zones
-   (**[OPEN D-ZONES]**); show warning if outside allowed parking.
-2. Optional parking photo (decision pending, part of **[OPEN D-ZONES]**).
-3. Backend sends lock command → waits for acknowledgment.
-4. Ack success → ride `ended`; fare computed; wallet debited; receipt shown.
-5. Ack failure/timeout → ride `lock_pending` retried; if still unconfirmed,
-   ride goes to `end_unconfirmed` and is flagged for operator review. The
-   rider is shown that the end request is recorded and is not charged for
-   time after their end request (final rule under **[OPEN D-REFUND]**).
+Tapping "End ride" **requests** completion. It is not by itself the final
+billing event.
+1. Rider taps "End ride" → ride moves to `end_requested`; the request time
+   and location are recorded.
+2. Parking validation per **[OPEN D-PARK]** (zones, photo, outcome when
+   outside allowed parking). If parking is rejected, the rider is told
+   where to move and the ride stays active.
+3. Ride moves to `completion_pending` while the system waits for the
+   device to confirm completion. The mechanism comes from the supplier
+   protocol (**[OPEN D-ENDCONF]**).
+4. Confirmation → ride `completed`; fare computed using the billing cutoff
+   chosen under **[OPEN D-BILLCUT]**; wallet charged once; receipt shown.
+5. Timeout, failure, or inconsistent device data → ride
+   `operator_review`; rider sees that the end request was recorded and the
+   ride is being checked. No automatic charge happens while a ride is in
+   review. Billing and refund outcome per **[OPEN D-BILLCUT, D-REFUND]**.
 
 ### J7 — History, receipts, support
 - Ride history with route summary, duration, fare breakdown.
@@ -151,12 +160,18 @@ Operators run the physical fleet. They can:
   simulated vs real badge.
 - Change operational status: `available`, `maintenance`, `charging`,
   `retired`, `missing` (not ownership/pricing).
-- Issue device commands allowed for operators (e.g. lock, unlock for
-  service, locate/beep) — only commands the supplier protocol actually
-  supports; each logged with operator identity.
+- Issue device commands allowed for operators, limited to commands the
+  supplier protocol actually documents. Motion-affecting commands require
+  the documented stationary-state check. Each command is logged with
+  operator identity.
 - Handle field tasks: rebalancing, battery swap/charging, retrieve
   badly-parked scooters, repair tickets.
-- Review `end_unconfirmed` rides and confirm physical lock state.
+- Work the `operator_review` queue: rides whose completion was not
+  confirmed, late unlock acknowledgments, telemetry inconsistent with
+  ride state, parking disputes. Confirm physical state on site and record
+  a resolution. Device commands are never sent automatically to resolve
+  these, and commands that could lock wheels or cut propulsion are never
+  sent while a scooter may be moving (architecture §9).
 - Cannot: change prices, change zones, adjust wallets, manage staff.
 
 ## 7. Admin responsibilities (Admin dashboard)
@@ -183,7 +198,7 @@ Admins run the business. They can:
 | View fleet (all scooters, devices) | – | ✓ | ✓ |
 | Change scooter operational status | – | ✓ | ✓ |
 | Send service device commands | – | ✓ | ✓ |
-| Resolve unconfirmed ride ends | – | ✓ | ✓ |
+| Resolve rides in operator review | – | ✓ | ✓ |
 | View any rider's data | – | limited (ride context) | ✓ |
 | Wallet adjustments / refunds | – | – | ✓ |
 | Pricing, zones, minimum balance | – | – | ✓ |

@@ -36,54 +36,79 @@ phase installs them; record changes in `docs/decisions.md`.
 ```
 apps/
   api/            Backend API (Fastify)
-  iot-gateway/    Device gateway process (simulator first; supplier TCP later)
+  iot-gateway/    Device gateway process (no protocol until supplier docs)
   rider-mobile/   Expo app (Android/iOS)
   rider-web/      Next.js rider web app
-  admin-web/      Next.js admin dashboard
-  operator-web/   Next.js operator dashboard
+  staff-web/      Next.js staff app: /admin and /operator route areas
 packages/
-  contracts/      Zod schemas + inferred types for every API request/response
+  contracts/      Zod schemas + inferred types for API requests/responses
   config/         Typed env loading + production safety guard
-  db/             Drizzle schema, migrations, DB test helpers
-  domain/         Pure business logic (ride state machine, fare calc, ledger rules)
-  ui-web/         Shared React components for the three Next.js apps (optional)
+  db/             Drizzle schema, SQL migrations, migration runner
+  domain/         Pure business logic (added when first needed)
   tsconfig/       Shared tsconfig bases
-  eslint-config/  Shared lint config
+scripts/          Cloud setup and local PostgreSQL scripts
 docs/
 ```
 
-Rationale: one repo, one lockfile, shared contracts imported by both
-server and clients so request shapes cannot drift.
+**Admin and operator dashboards share one Next.js app (`staff-web`)**
+with separate route areas (`/admin/*`, `/operator/*`). Why:
+- Both are used by **staff accounts** (separate from riders) and share
+  login, session handling, fleet map and list components.
+- Operator capabilities are a subset of admin capabilities (product-spec
+  §8), so one app avoids duplicating fleet views.
+- One build and one deployment instead of two.
+Separation is still enforced: route-area guards in the app plus
+role checks on every `/v1/operator/*` and `/v1/admin/*` API route. The API
+is the security boundary, not the UI. If the two need independent
+release cycles or domains later, the route areas can be split into two
+apps without changing the API.
 
-## 3. Technology choices
+Internal packages are consumed **as TypeScript source** (`exports` →
+`src/index.ts`). They are compiled by each consumer's toolchain: Next.js
+`transpilePackages`, Metro, Vitest, and esbuild for the API bundle. This
+avoids a separate package build step.
 
-| Concern | Choice | Verified version (2026-10-04) | Notes |
+## 3. Technology choices and verified versions
+
+Rechecked on 2026-10-04. Most official documentation sites (docs.expo.dev,
+nextjs.org, fastify.dev, orm.drizzle.team, zod.dev) are **blocked by this
+environment's egress proxy**. Versions were therefore verified from
+first-party sources that are reachable: the npm registry (published
+package metadata: versions, `engines`, `peerDependencies`) and the
+projects' own GitHub repositories (raw files).
+
+| Concern | Choice | Version | Source & compatibility evidence |
 |---|---|---|---|
-| Runtime | Node.js 22 LTS | 22.22.0 in cloud image | Next 16 needs ≥20.9 |
-| Package manager | pnpm | 10.28.0 | workspaces; `node-linker=hoisted` likely needed for Expo app (verify in Phase 1) |
-| Language | TypeScript **6.0.x** | 6.0.3 | **Not 7.0**: `typescript-eslint` 8.71 peer range is `>=4.8.4 <6.1.0` |
-| Task runner | Turborepo | 2.11.7 | cached lint/typecheck/test/build |
-| API framework | **Fastify 5** | 5.12.5 | see §4 |
-| Schema/validation | Zod 4 | 4.6.5 | `fastify-type-provider-zod` 7.0.0 needs zod ≥4.1.5, fastify ^5.5 |
-| ORM / migrations | Drizzle ORM + drizzle-kit, `pg` driver | 0.45.3 / 0.31.11 / 8.23.1 | SQL-first; plain SQL migrations committed |
-| Job/timeouts | pg-boss (PostgreSQL-backed) | 12.36.0 | avoids Redis; see §8 |
-| Mobile | Expo SDK 57, Expo Router | expo 57.0.26 | SDK 57 pins **react-native 0.86.3, react 19.2.3** |
-| Mobile maps | `@rnmapbox/maps` | 10.3.5 | not in Expo Go → requires development builds (EAS) |
-| Mobile QR/location | `expo-camera`, `expo-location` | ~57.0.x | |
-| Web | Next.js 16 (App Router) | 16.3.8 | React peer `^19` → pin React **19.2.3** repo-wide to match Expo |
-| Web maps | `mapbox-gl` | 3.32.0 | |
-| Unit/integration tests | Vitest | 5.0.3 | |
-| E2E web tests | Playwright | 1.63.0 | Chromium pre-installed in cloud image |
-| Mobile builds | EAS Build (cloud) | eas-cli 24.10.0 | account access **not yet verified** |
+| Runtime | Node.js 22 LTS | ≥22.12 (cloud image: 22.22.0) | pg-boss 12.36 `engines.node >=22.12.0`; Vitest 5 `^22.12.0 \|\| ^24 …`; Next.js installation doc: Node ≥20.9; Fastify `docs/Reference/LTS.md`: v5 supports Node 20/22/24/26 |
+| Package manager | pnpm | 10.28.0 | Expo monorepo guide (`expo/expo` `docs/pages/guides/monorepos.mdx`): from SDK 54 Expo supports pnpm isolated installs; fallback `nodeLinker: hoisted` |
+| Language | TypeScript | ~6.0.3 | Expo SDK 57 default template (`expo/expo@sdk-57` `templates/expo-template-default/package.json`) uses `~6.0.3`; typescript-eslint peer `>=4.8.4 <6.1.0`; Next.js minimum TS 5.1. **Not 7.x.** |
+| Mobile | Expo SDK 57 + Expo Router | expo ~57.0.26, expo-router ~57.0.24 | `expo/expo@sdk-57` `packages/expo/bundledNativeModules.json` and default template |
+| Mobile RN/React | react-native 0.86.3, react 19.2.3, @types/react ~19.2.2 | exact pins | Same SDK 57 files |
+| Web | Next.js 16 (App Router) | 16.3.8 | npm: `peerDependencies.react ^18.2.0 \|\| ^19.0.0`, `engines.node >=20.9.0` |
+| Web React | react / react-dom | 19.3.0 (latest stable) | npm `dist-tags.latest`; satisfies Next 16 peer range |
+| API | Fastify | 5.12.5 | npm `dist-tags.latest` (6.x is alpha) |
+| Validation | Zod | 4.6.5 | npm latest |
+| Fastify ↔ Zod | fastify-type-provider-zod | 7.0.0 | npm peers: fastify ^5.5.0, zod >=4.1.5 |
+| ORM / migrations | drizzle-orm / drizzle-kit, `pg` driver | 0.45.3 / 0.31.11 / 8.23.1 | npm `dist-tags.latest` (1.0 is still `rc`); drizzle-orm peer `pg >=8` |
+| Jobs/timeouts | pg-boss | 12.36.0 | npm; requires Node ≥22.12. **Not installed until it is needed** (device timeouts phase) |
+| Tests | Vitest | 5.0.3 | npm `engines`, peers |
+| E2E web | Playwright | 1.63.0 | Chromium pre-installed in cloud image (later phases) |
+| Mobile builds | EAS Build | eas-cli 24.10.0 | account access **not verified** |
+| Maps | `@rnmapbox/maps` 10.3.5, `mapbox-gl` 3.32.0 | | added in UI phases, not Phase 1 |
 
-Compatibility notes:
-- React must be a single version (19.2.3) across the workspace while Expo
-  SDK 57 pins it; upgrading web React independently risks duplicate React
-  in the shared packages.
-- `typescript` 7.x (native compiler) is excluded until typescript-eslint
-  and Next.js type checking officially support it.
-- Expo monorepo setup (Metro, pnpm) must be validated in Phase 1 against
-  the Expo "Work with monorepos" guide for SDK 57.
+**React versions are not forced to be identical across apps.** The Expo
+monorepo guide states that duplicate React versions *within a single app*
+cause runtime errors and that duplicate **React Native** versions in one
+monorepo are unsupported. It does not require separate apps to share a
+React version. Consequences:
+- `rider-mobile` uses React 19.2.3 exactly as Expo SDK 57 pins.
+- The Next.js apps use React 19.3.0.
+- Shared packages (`contracts`, `config`, `db`) do not depend on React. If
+  a shared React UI package is ever added, it must declare React as a
+  `peerDependency` only.
+
+Exact resolved versions are pinned by the committed `pnpm-lock.yaml`.
+Tooling choices (ESLint, Prettier) are listed in `docs/decisions.md`.
 
 ## 4. Backend framework recommendation: Fastify
 
@@ -118,7 +143,7 @@ and separate token audiences:
 | `/v1/rider/*` | rider token | profile, nearby scooters, wallet, top-ups, rides |
 | `/v1/operator/*` | staff token with `operator` or `admin` role | fleet, scooter status, service commands, ride reviews |
 | `/v1/admin/*` | staff token with `admin` role | riders, adjustments, pricing, zones, staff, audit |
-| `/v1/webhooks/chapa` | Chapa (signature verified) | payment events |
+| `/v1/webhooks/chapa` | Chapa (authenticity check per official docs — **unverified**, Phase 8) | payment events |
 | `/internal/*` | IoT gateway ↔ API (service token, private network) | device events, command results |
 
 Key rider endpoints (shapes defined in `packages/contracts`):
@@ -154,7 +179,8 @@ Each external dependency is an interface with a real and a fake adapter:
 ### Production safety guard (`packages/config`)
 At process start, config is parsed with Zod. If `APP_ENV=production` and
 any of these hold, the process **exits non-zero**:
-- payment provider ≠ `chapa`, or a Chapa **test** key is configured;
+- payment provider ≠ `chapa`, or Chapa is configured in test mode
+  (detection method to be defined from the official docs);
 - any OTP sender is a log-only/fake sender, or a fixed/dev OTP code is set;
 - device adapter is `simulated`, or any device row with
   `is_simulated = true` is eligible for rental (checked at startup and
@@ -162,17 +188,23 @@ any of these hold, the process **exits non-zero**:
 - any `DEV_*` / `ALLOW_FAKE_*` variable is set.
 There is no override flag. Unit tests cover each rule.
 
-### Chapa integration (verify again in Phase 8)
-From Chapa developer docs (developer.chapa.co — **blocked by this cloud
-environment's egress proxy**; details below came from search excerpts and
-must be re-verified from the official docs before implementation):
-- Initialize: `POST https://api.chapa.co/v1/transaction/initialize` with
-  amount, currency `ETB`, `tx_ref`, callback/return URLs → `checkout_url`.
-- Verify: `GET https://api.chapa.co/v1/transaction/verify/{tx_ref}`.
-- Webhooks: HMAC-SHA256 signatures in `chapa-signature` /
-  `x-chapa-signature` headers using the merchant's secret.
-- Provider amount limits: unknown; read from docs/merchant account and
-  surface provider errors. Captain enforces only the 500 ETB minimum.
+### Chapa integration — **UNVERIFIED, not designed yet**
+The official Chapa developer documentation (developer.chapa.co) is
+**blocked by this cloud environment's egress proxy**. The only
+information so far comes from web-search excerpts, which **are not
+sufficient to define the integration**. These points are
+**unverified assumptions** to check, not specifications:
+- a transaction initialize endpoint that returns a hosted checkout URL;
+- a server-side transaction verify endpoint keyed by Captain's `tx_ref`;
+- webhook authenticity via an HMAC-based signature header, with header
+  name(s), signed content, secret, and algorithm all to be confirmed;
+- provider amount limits are unknown.
+
+Before Chapa work starts (Phase 8), the owner must allow access to the
+official docs or provide them. The integration design (endpoints, signature
+verification, retry/verify semantics, test-mode behavior) is then written
+from those docs and recorded in `docs/decisions.md`. **No Chapa code is
+written before then, and none in Phase 1.**
 
 ### GeezSMS (verify in Phase 4)
 GeezSMS publishes an HTTP API (Postman docs:
@@ -214,9 +246,11 @@ deferred trigger + domain check).
 Top-up / payment verification flow:
 1. `POST /topups` validates amount ≥ 50 000 santim, creates `payments` row
    (`pending`, unique `tx_ref`), calls Chapa initialize, returns checkout URL.
-2. Credit happens **only** after server-side verification: webhook with a
-   valid signature **and** a `verify` call confirming status success,
-   amount, and currency match the `payments` row.
+2. Credit happens **only** after server-side verification with the
+   provider confirming success, amount, and currency match the `payments`
+   row. The exact verification mechanism (webhook signature scheme, verify
+   endpoint) is **unverified** until the official Chapa docs are reviewed
+   (see §6).
 3. Credit is idempotent: unique constraint on `ledger_transactions
    (source_type='payment', source_id)` — duplicate webhooks/polls do nothing.
 4. A scheduled job verifies `pending` payments older than N minutes (webhook
@@ -228,79 +262,128 @@ Top-up / payment verification flow:
 
 ## 8. Ride state machine and failure recovery
 
+Tapping **"End ride" is a request to complete the ride**, not a final
+billing event. Completion depends on parking validation and device
+confirmation, whose exact rules are unresolved business decisions
+(**[OPEN D-BILLCUT, D-PARK, D-ENDCONF, D-REFUND]** in `docs/decisions.md`).
+
 ```
-              start request (checks pass)
-                     │
-                     ▼
-             ┌───────────────┐  ack fail / timeout  ┌───────────────┐
-             │ unlock_pending├─────────────────────►│ unlock_failed │ (terminal, no charge)
-             └──────┬────────┘                      └───────────────┘
-                    │ unlock ack ok
-                    ▼
-             ┌───────────────┐ pause (if allowed)  ┌────────┐
-             │    active     │◄───────────────────►│ paused │  [OPEN D-PAUSE]
-             └──────┬────────┘                      └────────┘
-                    │ end request
-                    ▼
-             ┌───────────────┐ lock ack ok        ┌─────────┐
-             │ lock_pending  ├───────────────────►│  ended  │ (fare charged)
-             └──────┬────────┘                    └─────────┘
-                    │ retries exhausted
-                    ▼
-             ┌─────────────────┐ operator confirms ┌─────────┐
-             │ end_unconfirmed ├──────────────────►│  ended  │
-             └─────────────────┘                   └─────────┘
+   start request (checks pass)
+          │
+          ▼
+  ┌────────────────┐ unlock nack / timeout ┌───────────────┐
+  │ unlock_pending ├──────────────────────►│ unlock_failed │ terminal, no charge
+  └───────┬────────┘                       └───────┬───────┘
+          │ unlock ack                             │ late unlock ack → incident
+          ▼                                        ▼
+  ┌────────────────┐  pause/resume     ┌──────────────────┐
+  │     active     │◄─────────────────►│ paused [D-PAUSE] │
+  └───────┬────────┘                   └──────────────────┘
+          │ rider taps "End ride"
+          ▼
+  ┌────────────────┐ parking rejected (policy D-PARK) → back to active
+  │ end_requested  ├────────────────────────────────────────────┐
+  └───────┬────────┘                                            │
+          │ parking accepted / not required                     ▼
+          ▼                                                  active
+  ┌────────────────────┐ device confirms end        ┌───────────┐
+  │ completion_pending ├───────────────────────────►│ completed │ fare finalized & charged
+  └───────┬────────────┘                            └───────────┘
+          │ timeout / nack / inconsistent telemetry       ▲
+          ▼                                               │ operator resolves
+  ┌─────────────────┐─────────────────────────────────────┘
+  │ operator_review │ (also reachable from any state on incidents)
+  └─────────────────┘
 ```
+
+State meanings:
+- `end_requested`: the rider's request time and location are recorded.
+  Parking validation runs. Whether this time is the billing cutoff is
+  **D-BILLCUT**.
+- `completion_pending`: the system is waiting for the device to confirm
+  the ride can be completed. The confirmation mechanism depends on the
+  supplier protocol (**D-ENDCONF**, **D-IOT**).
+- `completed`: completion confirmed by the device or by an operator. Fare
+  computed from the pricing snapshot and the cutoff chosen under
+  D-BILLCUT, then charged once (idempotent ledger posting).
+- `operator_review`: a human must decide. Causes: completion timeout,
+  device nack, telemetry inconsistent with ride state, late unlock ack,
+  parking dispute. Every entry creates a `ride_incidents` row. The
+  operator's resolution records the outcome. Billing and refund
+  consequences follow **D-REFUND / D-BILLCUT**. Nothing is charged
+  automatically while a ride is in review.
 
 Rules:
 - Every transition is a row in `ride_events` and is applied with an
   optimistic check (`UPDATE … WHERE status = <expected>`).
 - One non-terminal ride per rider and per scooter (partial unique indexes).
-- Billable time: from unlock ack timestamp to the rider's end request
-  timestamp (not lock ack), so device slowness never costs the rider.
-  Final rule under **[OPEN D-REFUND / D-PRICE]**.
-- If an unlock ack arrives **after** the ride was marked `unlock_failed`,
-  the gateway immediately sends a lock command and an operator alert is
-  raised; the rider is not charged.
-- If the device reports it is locked/moving inconsistently with ride
-  state, raise an operator alert; never auto-charge on inferred events.
-- API restart: pending commands and their deadlines are in PostgreSQL;
+  Terminal states are `unlock_failed` and `completed`.
+- **Late unlock ack** (an ack arrives after the ride became
+  `unlock_failed`): the system **does not** automatically send a lock or
+  any other physical command. It raises a `late_unlock_ack` incident for
+  operator review and does not charge the rider. Automated recovery may
+  be added only after supplier documentation confirms safe behavior,
+  including the stationary-state checks. Until then, any automated
+  recovery exists only in the simulator and is labelled simulated.
+- The device reporting a state that does not match the ride (for example
+  moving after completion) raises an incident. The system never
+  auto-charges on inferred events.
+- API restart: pending commands and their deadlines are in PostgreSQL, and
   the timeout worker resumes on boot.
-- Rider app crash: ride state is server-side; app restores from
+- Rider app crash: ride state is server-side; the app restores it from
   `GET /rides/current`.
 
-## 9. Device commands, acknowledgments and timeouts
+## 9. Device commands, acknowledgments, timeouts and safety
 
 The supplier protocol is unknown, so the internal contract is
-protocol-neutral:
+protocol-neutral and **defines no supplier packet formats or command
+codes**.
 
 - `device_commands` row per command: `id` (UUID, used as correlation id if
-  the protocol supports it), `device_id`, `type` (`unlock`, `lock`, …
-  — final list only from supplier docs), `status`, `issued_by`, `ride_id?`,
-  `attempt`, `sent_at`, `deadline_at`, `acked_at`, `result_payload`.
+  the protocol supports one), `device_id`, internal `type`, `status`,
+  `issued_by`, `ride_id?`, `attempt`, `sent_at`, `deadline_at`, `acked_at`,
+  `result_payload`. The set of internal types and their mapping to real
+  commands is defined **only** from supplier documentation.
 - Status: `queued → sent → acked | nacked | timed_out | failed`.
-- The API writes the command, then the gateway delivers it. The gateway
+- The API writes the command and the gateway delivers it. The gateway
   reports results via `/internal/device-commands/:id/result`.
-- **Timeout**: worker (pg-boss scheduled job) marks `sent` commands past
-  `deadline_at` as `timed_out` and drives the ride state machine.
-  Initial deadline value is a placeholder (e.g. 15 s) to be tuned from
-  supplier specs and field tests.
-- **Retries**: lock retries a bounded number of times; unlock does **not**
-  auto-retry (rider chooses), to avoid unlocking an abandoned scooter.
+- **Timeout**: a worker marks `sent` commands past `deadline_at` as
+  `timed_out` and drives the ride state machine (usually to
+  `operator_review`). Deadline values are placeholders until supplier
+  specs and field tests exist.
+- **Retries**: no automatic retries of physical commands unless supplier
+  documentation states the command is idempotent and safe to repeat.
 - **Never assume success.** Only an explicit ack from the real adapter (or
-  the simulator in non-production) moves a ride forward.
+  the simulator outside production) moves a ride forward.
 - Device offline at command time → fail fast with `DEVICE_OFFLINE`.
 
-Simulated hardware:
-- `SimulatedDeviceAdapter` lives in `apps/iot-gateway/src/adapters/simulated`.
-- Devices have `is_simulated` (immutable after creation). Simulated devices
-  can only be served by the simulated adapter and are excluded from rider
-  queries in production.
-- Dashboards show a "SIMULATED" badge; logs include `adapter=simulated`.
-- Simulator supports scripted outcomes (ack, nack, delay, silence) for tests.
+### Motion safety (non-negotiable)
+- **Never issue a command that could lock wheels or disable propulsion
+  while a scooter is moving**, whether triggered by the system, an
+  operator, or an admin.
+- Any such command requires a stationary-state check whose method and
+  data source come from supplier documentation (e.g. a documented
+  speed/motion field). Until that exists, the real adapter does not
+  implement these commands. The simulator models them only for testing
+  and labels them simulated.
+- Low balance, zone violations, and late acks never trigger an automatic
+  lock or propulsion cut-off. They create incidents or notifications
+  (policy **D-LOWBAL**, **D-ZONES**).
 
-Real hardware (later): `SupplierTcpAdapter` is written **only** from
-supplier documentation; until then the directory does not exist.
+### Simulated hardware
+- `SimulatedDeviceAdapter` lives in `apps/iot-gateway/src/adapters/simulated`.
+- Devices have `is_simulated` (immutable after creation). Simulated
+  devices can only be served by the simulated adapter and are excluded
+  from rider queries in production.
+- Dashboards show a "SIMULATED" badge, logs include `adapter=simulated`,
+  and simulated outcomes are recorded with `simulated=true` in
+  `device_commands.result_payload`.
+- The simulator supports scripted outcomes (ack, nack, delay, silence) for
+  tests.
+
+### Real hardware (later)
+`SupplierTcpAdapter` is written **only** from supplier documentation.
+Until then that adapter does not exist.
 
 ## 10. Redis — not used initially
 
@@ -342,13 +425,20 @@ Goal: identical PostgreSQL major version everywhere; no SQLite or fakes.
 `pg_ctl`, `postgres` present under `/usr/lib/postgresql/16/bin`; a
 throwaway cluster started successfully). No server runs by default.
 Phase 1 adds `scripts/db-local.sh` that:
-- creates a cluster in a project-local, git-ignored dir
-  (e.g. `.local/pg`) owned by the `postgres` OS user (initdb refuses root);
-- starts it on a Unix socket + localhost port with `pg_ctl -w`;
-- creates `captain_dev` and `captain_test` databases;
-- is idempotent and invoked from a Claude Code SessionStart hook.
-If the binaries are missing in a future image, the script installs
-`postgresql-16` via apt (if network allows) or fails with a clear message.
+- creates a cluster **outside the repository** (default
+  `/var/tmp/captain-pg16`, override `CAPTAIN_PG_DIR`). If the script runs as
+  root, the cluster is owned by the `postgres` OS user and the server runs
+  through `runuser`, because PostgreSQL refuses to run as root;
+- listens only on `127.0.0.1` and a socket in that directory (default port
+  54329, so it can't collide with a system server);
+- waits for `pg_isready` before reporting success;
+- creates `captain_dev` and `captain_test` databases if missing;
+- is idempotent: an existing cluster is reused, a running server is left
+  running;
+- is invoked by `scripts/cloud-setup.sh` from a Claude Code SessionStart
+  hook.
+If the binaries are missing in a future image, the script fails with a
+clear message naming the package (`postgresql-16`).
 
 **GitHub Actions:** `services: postgres:16` container with health check;
 `DATABASE_URL` points at it. Same migrations, same tests.

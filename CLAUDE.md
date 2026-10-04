@@ -63,6 +63,18 @@ Read these before starting any task:
 - **Simulated hardware must be clearly distinguishable from real
   hardware**: separate adapter, `is_simulated` flag on devices, visible
   "SIMULATED" labels in dashboards, and logs tagged with the adapter name.
+- **Never issue a device command that could lock wheels or disable
+  propulsion while a scooter may be moving.** Such commands need a
+  stationary-state check defined from supplier documentation. Never send
+  physical commands automatically to recover from errors (for example a
+  late unlock acknowledgment). Raise an operator-review incident instead.
+  Any automated recovery exists only in the simulator, labelled simulated.
+- "End ride" is a completion **request**. Billing cutoff, parking
+  validation, and device confirmation rules are unresolved decisions
+  (D-BILLCUT, D-PARK, D-ENDCONF). Do not hard-code them.
+- The Chapa integration details are **unverified** until the official
+  docs are reviewed (decision T-01). Do not implement Chapa from search
+  snippets.
 - **Never enable fake payments, fake OTP, or fake unlock success in
   production.** Fake/simulated providers must be rejected at startup when
   `APP_ENV=production` (see the configuration guard in

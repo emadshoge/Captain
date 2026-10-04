@@ -22,6 +22,7 @@ riders 1─* rides 1─* ride_events
 rides  *─1 scooters 1─1 devices 1─* device_commands
                          devices 1─* device_telemetry
 rides  1─0..1 ledger_transactions (charge)
+rides  1─* ride_incidents (operator review)
 ledger_transactions 1─* ledger_entries *─1 ledger_accounts
 riders 1─* wallet_holds *─0..1 rides
 pricing_plans 1─* rides (plan snapshot copied onto ride)
@@ -89,22 +90,38 @@ consider partitioning by month; retention policy TBD.
 
 ### rides
 `id`, `rider_id`, `scooter_id`, `device_id`, `status`
-(`unlock_pending|unlock_failed|active|paused|lock_pending|end_unconfirmed|ended`),
+(`unlock_pending|unlock_failed|active|paused|end_requested|completion_pending|completed|operator_review`),
 `pricing_snapshot` (jsonb copy of plan at start), `requested_at`,
-`started_at` (unlock ack), `end_requested_at`, `ended_at` (lock ack or
-operator confirmation), `start_location`, `end_location`,
-`end_zone_status` (`ok|outside|unknown`), `duration_seconds`,
-`fare_santim`, `charge_ledger_tx_id?`, `failure_reason?`.
+`started_at` (unlock ack), `end_requested_at` + `end_request_location`
+(rider tapped "End ride"), `completion_confirmed_at` (device or operator
+confirmation), `completion_source` (`device|operator`),
+`billing_cutoff_at` (set by the D-BILLCUT policy; nullable until
+completed), `completed_at`, `start_location`, `end_location`,
+`parking_status` (`ok|outside|unknown|not_checked`, D-PARK),
+`duration_seconds`, `fare_santim`, `charge_ledger_tx_id?`,
+`failure_reason?`.
 
 Constraints:
 - Partial unique index: one ride per `rider_id` where status not in
-  (`ended`, `unlock_failed`).
+  (`completed`, `unlock_failed`). A ride in `operator_review` still blocks
+  a new ride for that rider and scooter until resolved (whether the rider
+  may start another ride meanwhile is part of D-ENDCONF).
 - Partial unique index: one ride per `scooter_id` with same condition.
 
 ### ride_events
 `id`, `ride_id`, `from_status`, `to_status`, `cause`
 (`rider|device_ack|timeout|operator|system`), `actor_id?`,
 `device_command_id?`, `created_at`, `data` (jsonb). Append-only.
+
+### ride_incidents
+`id`, `ride_id?`, `device_id?`, `type`
+(`late_unlock_ack|completion_timeout|completion_nack|telemetry_mismatch|parking_dispute|other`),
+`status` (`open|in_progress|resolved`), `opened_at`, `opened_by`
+(`system|staff`), `assigned_staff_id?`, `resolution`
+(`completed_confirmed|completed_adjusted|cancelled_no_charge|other`),
+`resolution_note`, `resolved_by?`, `resolved_at?`, `is_simulated`
+(copied from the device). Opening an incident never sends a device
+command automatically.
 
 ### pricing_plans
 `id`, `name`, `unlock_fee_santim`, `per_minute_santim`,
