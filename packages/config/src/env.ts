@@ -12,7 +12,8 @@ export type AppEnv = (typeof APP_ENVS)[number];
  */
 export const PAYMENT_PROVIDERS = ['none', 'fake'] as const;
 export const OTP_SMS_PROVIDERS = ['none', 'log_only'] as const;
-export const OTP_EMAIL_PROVIDERS = ['none', 'log_only'] as const;
+export const OTP_EMAIL_PROVIDERS = ['none', 'log_only', 'smtp'] as const;
+export const RIDER_CHANNELS = ['sms', 'email'] as const;
 export const DEVICE_ADAPTERS = ['none', 'simulated'] as const;
 
 const baseSchema = z.object({
@@ -30,15 +31,99 @@ const providerSchema = z.object({
 });
 
 const port = z.coerce.number().int().min(1).max(65_535);
+const int = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
+const bool = z.enum(['true', 'false']).transform((value) => value === 'true');
+const splitCsv = (value: string) =>
+  value
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+const csvEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
+  z
+    .string()
+    .transform(splitCsv)
+    .pipe(z.array(z.enum(values)).min(1));
+const csvUrls = z.string().transform(splitCsv).pipe(z.array(z.url()));
 
-export const apiEnvSchema = baseSchema.extend(providerSchema.shape).extend({
+/** Development-only signing secret. Refused outside development/test. */
+export const DEV_AUTH_SECRET = 'captain-development-only-auth-secret-not-for-real-use';
+
+const apiBaseSchema = baseSchema.extend(providerSchema.shape).extend({
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: port.default(3000),
   DATABASE_URL: z
     .string()
     .min(1)
     .refine((value) => /^postgres(ql)?:\/\//.test(value), 'must be a postgres:// URL'),
+  /** Number of trusted reverse-proxy hops in front of the API (for client IPs). */
+  TRUST_PROXY: int(0, 5).default(0),
+  BODY_LIMIT_BYTES: int(1_024, 10 * 1024 * 1024).default(1024 * 1024),
+
+  // Authentication (Phase 4)
+  /** HMAC key for OTP hashes. Required (>= 32 chars) in staging/production. */
+  AUTH_SECRET: z.string().min(32, 'must be at least 32 characters').optional(),
+  /** Rider sign-in channels offered (D-LOGIN unresolved: both by default). */
+  AUTH_RIDER_CHANNELS: csvEnum(RIDER_CHANNELS).default(['sms', 'email']),
+  OTP_TTL_SECONDS: int(60, 900).default(300),
+  OTP_MAX_ATTEMPTS: int(1, 10).default(5),
+  OTP_RESEND_COOLDOWN_SECONDS: int(15, 600).default(60),
+  ACCESS_TOKEN_TTL_SECONDS: int(60, 3_600).default(900),
+  REFRESH_TOKEN_TTL_DAYS: int(1, 90).default(30),
+  RIDER_SESSION_MAX_DAYS: int(1, 365).default(90),
+  STAFF_SESSION_MAX_HOURS: int(1, 24).default(12),
+
+  // Browser security
+  /** Exact origins allowed by CORS (comma-separated). Required in staging/production. */
+  CORS_ORIGINS: csvUrls.optional(),
+  /** Secure cookies (HTTPS only). Must be true in staging/production. */
+  COOKIE_SECURE: bool.default(true),
+
+  // Email (SMTP) — required when OTP_EMAIL_PROVIDER=smtp
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: port.default(587),
+  /** true = implicit TLS (465); false = STARTTLS required. */
+  SMTP_SECURE: bool.default(false),
+  /** Refuse to send without TLS. Must be true in staging/production. */
+  SMTP_REQUIRE_TLS: bool.default(true),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(3).optional(),
 });
+
+const DEV_CORS_ORIGINS = ['http://localhost:3001', 'http://localhost:3002'];
+
+export const apiEnvSchema = apiBaseSchema
+  .superRefine((config, ctx) => {
+    const deployed = config.APP_ENV === 'staging' || config.APP_ENV === 'production';
+    const issue = (path: string, message: string) =>
+      ctx.addIssue({ code: 'custom', path: [path], message });
+    if (deployed && !config.AUTH_SECRET) issue('AUTH_SECRET', 'required in staging/production');
+    if (deployed && (!config.CORS_ORIGINS || config.CORS_ORIGINS.length === 0)) {
+      issue('CORS_ORIGINS', 'required in staging/production');
+    }
+    if (deployed && !config.COOKIE_SECURE)
+      issue('COOKIE_SECURE', 'must be true in staging/production');
+    if (deployed && !config.SMTP_REQUIRE_TLS)
+      issue('SMTP_REQUIRE_TLS', 'must be true in staging/production');
+    if (config.OTP_EMAIL_PROVIDER === 'smtp') {
+      for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'] as const) {
+        if (!config[key]) issue(key, 'required when OTP_EMAIL_PROVIDER=smtp');
+      }
+    }
+    if (deployed) {
+      if (config.AUTH_RIDER_CHANNELS.includes('sms') && config.OTP_SMS_PROVIDER === 'none') {
+        issue('AUTH_RIDER_CHANNELS', 'sms channel enabled but OTP_SMS_PROVIDER is none');
+      }
+      if (config.AUTH_RIDER_CHANNELS.includes('email') && config.OTP_EMAIL_PROVIDER === 'none') {
+        issue('AUTH_RIDER_CHANNELS', 'email channel enabled but OTP_EMAIL_PROVIDER is none');
+      }
+    }
+  })
+  .transform((config) => ({
+    ...config,
+    AUTH_SECRET: config.AUTH_SECRET ?? DEV_AUTH_SECRET,
+    CORS_ORIGINS: config.CORS_ORIGINS ?? DEV_CORS_ORIGINS,
+  }));
 export type ApiConfig = z.infer<typeof apiEnvSchema>;
 
 export const gatewayEnvSchema = baseSchema.extend({

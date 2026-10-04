@@ -17,9 +17,9 @@ Updated at the end of every phase.
 | F4 | Redaction (tokens, cookies, passwords, OTPs, credentials, connection strings) | `packages/logging/src/redact.ts` | logging + API tests | implemented | |
 | F5 | No sensitive body logging | Fastify request serializers | observability test | implemented | |
 | F6 | Consistent API errors, no internals | `apps/api/src/errors.ts` | observability test | implemented | |
-| F7 | Rate limits (auth, expensive endpoints) | — | — | planned (Phase 4) | |
-| F8 | Explicit CORS | — | — | planned (Phase 4) | |
-| F9 | Secure cookies + CSRF | — | — | planned (Phase 4) | |
+| F7 | Rate limits (auth, expensive endpoints) | `apps/api/src/lib/rate-limit.ts` | auth tests (per destination, cooldown) | implemented for auth; ride/payment endpoints in Phases 7–8 | PostgreSQL-backed |
+| F8 | Explicit CORS | `apps/api/src/app.ts`, `CORS_ORIGINS` | CORS preflight test | implemented | required in staging/prod |
+| F9 | Secure cookies + CSRF | `apps/api/src/auth/http.ts` | cookie/CSRF/Origin tests | implemented | |
 | F10 | Bounded request sizes | Fastify `bodyLimit` | 413 test | implemented | default 1 MiB |
 | F11 | Health/readiness without secrets | `apps/api/src/routes/health.ts` | health tests | implemented | |
 | F12 | Audit records for sensitive staff actions | — | — | planned (Phase 5) | |
@@ -45,15 +45,15 @@ Updated at the end of every phase.
 
 | Req | Requirement | Status | Phase / blocker |
 |---|---|---|---|
-| A1 | Rider registration/login via OTP | planned | 4 |
-| A2 | Hashed OTP, expiry, attempts, cooldowns, abuse controls | planned | 4 |
-| A3 | Sessions: expiry, refresh, logout, revocation | planned | 4 |
+| A1 | Rider registration/login via OTP | implemented (SMS simulated via log-only; email via SMTP) | 4 |
+| A2 | Hashed OTP, expiry, attempts, cooldowns, abuse controls | implemented | 4 |
+| A3 | Sessions: expiry, refresh, logout, revocation | implemented (reuse detection) | 4 |
 | A4 | Secure mobile token storage | planned | 9 |
-| A5 | Browser sessions (cookies + CSRF) | planned | 4/10 |
-| A6 | Suspension and deletion with financial retention | planned | 4/5 |
-| A7 | Profile/contact change with re-verification | planned | 4 |
-| A8 | Staff provisioning (no public admin sign-up) | planned | 4/5 |
-| A9 | Real email adapter | planned / blocked on provider choice (B4) | 4, 14 |
+| A5 | Browser sessions (cookies + CSRF) | implemented (API side); web client Phase 10 | 4/10 |
+| A6 | Suspension and deletion with financial retention | partial: suspension enforced, deletion request implemented; staff completion Phase 5 (`docs/privacy-retention.md`) | 4/5 |
+| A7 | Profile/contact change with re-verification | implemented | 4 |
+| A8 | Staff provisioning (no public admin sign-up) | implemented (audited CLI); dashboard management Phase 5/11; staff 2FA planned | 4/5 |
+| A9 | Real email adapter | implemented (SMTP, tested against a local SMTP server); **real delivery unverified** (B4, L2) | 4, 14 |
 | A10 | Real GeezSMS adapter | blocked (official docs B1, account B3) | 14 |
 | A11 | Backend permission enforcement + cross-user tests | planned | 5 |
 

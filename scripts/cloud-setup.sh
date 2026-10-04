@@ -67,6 +67,10 @@ if [[ -n "${CLAUDE_ENV_FILE:-}" ]]; then
   {
     echo "export APP_ENV=development"
     bash scripts/db-local.sh env | sed 's/^/export /'
+    # Development-only simulated providers (refused in production by the config guard).
+    echo "export OTP_SMS_PROVIDER=log_only"
+    echo "export OTP_EMAIL_PROVIDER=log_only"
+    echo "export COOKIE_SECURE=false"
     echo "export NEXT_TELEMETRY_DISABLED=1"
     echo "export EXPO_NO_TELEMETRY=1"
   } >>"$CLAUDE_ENV_FILE"

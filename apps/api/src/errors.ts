@@ -15,6 +15,7 @@ export class AppError extends Error {
     readonly code: string,
     message: string,
     readonly details?: unknown,
+    readonly options: { retryAfterSeconds?: number } = {},
   ) {
     super(message);
     this.name = 'AppError';
@@ -74,6 +75,9 @@ export function registerErrorHandling(app: FastifyInstance) {
     if (error instanceof AppError) {
       const level = error.statusCode >= 500 ? 'error' : 'info';
       request.log[level]({ code: error.code, statusCode: error.statusCode }, 'application error');
+      if (error.options.retryAfterSeconds !== undefined) {
+        reply.header('retry-after', String(error.options.retryAfterSeconds));
+      }
       return send(reply, request, error.statusCode, {
         code: error.code,
         message: error.message,

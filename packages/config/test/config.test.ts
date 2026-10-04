@@ -29,6 +29,9 @@ describe('loadApiConfig', () => {
     for (const APP_ENV of ['development', 'test', 'staging']) {
       expect(() =>
         loadApiConfig({
+          ...(APP_ENV === 'staging'
+            ? { AUTH_SECRET: 's'.repeat(32), CORS_ORIGINS: 'https://staging.captain.et' }
+            : {}),
           APP_ENV,
           DATABASE_URL: DB,
           PAYMENT_PROVIDER: 'fake',
@@ -41,8 +44,22 @@ describe('loadApiConfig', () => {
   });
 });
 
+/** Minimal valid production environment (email-only sign-in over SMTP). */
+const PROD = {
+  APP_ENV: 'production',
+  DATABASE_URL: 'postgres://db.internal/captain',
+  AUTH_SECRET: 'p'.repeat(40),
+  CORS_ORIGINS: 'https://app.captain.et,https://staff.captain.et',
+  AUTH_RIDER_CHANNELS: 'email',
+  OTP_EMAIL_PROVIDER: 'smtp',
+  SMTP_HOST: 'smtp.example.et',
+  SMTP_USER: 'captain',
+  SMTP_PASSWORD: 'smtp-secret-value',
+  EMAIL_FROM: 'Captain <no-reply@captain.et>',
+};
+
 describe('production safety guard', () => {
-  const prod = { APP_ENV: 'production', DATABASE_URL: 'postgres://db.internal/captain' };
+  const prod = PROD;
 
   it('accepts a production config with no fake providers', () => {
     expect(loadApiConfig(prod).APP_ENV).toBe('production');
@@ -86,7 +103,7 @@ describe('production safety guard', () => {
 });
 
 describe('Phase 2 configuration hardening', () => {
-  const prod = { APP_ENV: 'production', DATABASE_URL: 'postgres://db.internal/captain' };
+  const prod = PROD;
 
   it.each(['debug', 'trace'])('rejects LOG_LEVEL=%s in production', (level) => {
     expect(() => loadApiConfig({ ...prod, LOG_LEVEL: level })).toThrow(/LOG_LEVEL/);
@@ -129,6 +146,71 @@ describe('Phase 2 configuration hardening', () => {
       expect.unreachable();
     } catch (error) {
       expect((error as ConfigError).issues).toHaveLength(3);
+    }
+  });
+});
+
+describe('Phase 4 authentication and browser settings', () => {
+  it('defaults development to a labelled dev secret and localhost origins', () => {
+    const config = loadApiConfig({ APP_ENV: 'development', DATABASE_URL: DB });
+    expect(config.AUTH_SECRET).toMatch(/development-only/);
+    expect(config.CORS_ORIGINS).toEqual(['http://localhost:3001', 'http://localhost:3002']);
+    expect(config.AUTH_RIDER_CHANNELS).toEqual(['sms', 'email']);
+  });
+
+  it.each(['AUTH_SECRET', 'CORS_ORIGINS'])('requires %s in staging and production', (key) => {
+    const env: Record<string, string> = { ...PROD };
+    delete env[key];
+    expect(() => loadApiConfig(env)).toThrow(new RegExp(key));
+    expect(() => loadApiConfig({ ...env, APP_ENV: 'staging' })).toThrow(new RegExp(key));
+  });
+
+  it('refuses the development secret, insecure cookies and short secrets in production', () => {
+    expect(() =>
+      loadApiConfig({
+        ...PROD,
+        AUTH_SECRET: 'captain-development-only-auth-secret-not-for-real-use',
+      }),
+    ).toThrow(/development secret/);
+    expect(() => loadApiConfig({ ...PROD, COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
+    expect(() => loadApiConfig({ ...PROD, AUTH_SECRET: 'short' })).toThrow(/AUTH_SECRET/);
+  });
+
+  it('requires a real provider for every enabled rider channel in production', () => {
+    expect(() => loadApiConfig({ ...PROD, AUTH_RIDER_CHANNELS: 'sms,email' })).toThrow(
+      /sms channel/,
+    );
+  });
+
+  it('requires SMTP settings when the SMTP provider is selected', () => {
+    expect(() => loadApiConfig({ ...PROD, SMTP_HOST: undefined })).toThrow(/SMTP_HOST/);
+    expect(() =>
+      loadApiConfig({ APP_ENV: 'development', DATABASE_URL: DB, OTP_EMAIL_PROVIDER: 'smtp' }),
+    ).toThrow(/SMTP_USER/);
+  });
+
+  it('rejects malformed origins and unknown channels without echoing them', () => {
+    try {
+      loadApiConfig({
+        ...PROD,
+        CORS_ORIGINS: 'not a url secretish',
+        AUTH_RIDER_CHANNELS: 'carrier-pigeon',
+      });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as Error).message).toMatch(/CORS_ORIGINS/);
+      expect((error as Error).message).toMatch(/AUTH_RIDER_CHANNELS/);
+      expect((error as Error).message).not.toContain('secretish');
+      expect((error as Error).message).not.toContain('carrier-pigeon');
+    }
+  });
+
+  it('never echoes the SMTP password in errors', () => {
+    try {
+      loadApiConfig({ ...PROD, OTP_EMAIL_PROVIDER: 'log_only' });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as Error).message).not.toContain('smtp-secret-value');
     }
   });
 });

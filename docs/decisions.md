@@ -50,6 +50,14 @@ make them configurable and reference the ID.
 | R-38 | Zones stored as GeoJSON + bounding box with server-side point-in-polygon in the API; PostGIS deferred. | 2026-10-04 | Avoids an extension many hosts gate; revisit for large zone sets. |
 | R-39 | Plan revision 2: master work order phases 3–16; stacked branch + PR per phase; merge in phase order. | 2026-10-04 | Owner master order. |
 
+| R-40 | API runtime queries use parameterized SQL through `pg` (with explicit transactions/row locks); Drizzle remains the schema/migration source of truth. | 2026-10-04 | Locking and constraint-driven logic is clearer in SQL; every query is parameterized. |
+| R-41 | Sessions: opaque random tokens (`cat_`/`crt_`, 256-bit), stored as SHA-256 hashes; 15-min access, rotating single-use refresh with reuse detection (revokes the session); absolute caps (riders 90 days, staff 12 hours). No JWTs. | 2026-10-04 | Instant revocation, no signing-key management. |
+| R-42 | Mobile receives tokens in the body (stored in secure storage, Phase 9); web receives `HttpOnly`, `SameSite=Strict`, `Secure` (`__Host-`) cookies plus a session-bound HMAC CSRF token sent as `x-csrf-token`; Origin checked for cookie writes and web sign-in. | 2026-10-04 | Standard browser session hardening across subdomains of captain.et. |
+| R-43 | OTP: 6 digits from the crypto RNG, HMAC-SHA256 with `AUTH_SECRET` stored instead of the code, 5-minute TTL, 5 attempts, 60 s resend cooldown, PostgreSQL rate limits per IP and per destination; challenge deleted when delivery fails. | 2026-10-04 | Abuse controls without Redis. |
+| R-44 | Staff sign in only by email OTP on the web; provisioned only via the audited `staff` CLI (no public sign-up). Stronger staff authentication (TOTP/WebAuthn) is a planned follow-up before launch. | 2026-10-04 | Master order F; second factor tracked in launch checklist. |
+| R-45 | Email OTP via standard SMTP (nodemailer), provider-neutral; SMS OTP via GeezSMS **blocked** (no adapter until official docs are reviewed). | 2026-10-04 | Never invent provider APIs. |
+| R-46 | Ethiopian mobile numbers only for SMS OTP (`+2519…`, `+2517…`). | 2026-10-04 | Launch market; foreign numbers can use email. |
+
 ## Unresolved (owner decisions required)
 
 | ID | Question | Needed by phase | Notes / current handling |
