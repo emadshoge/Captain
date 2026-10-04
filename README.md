@@ -9,7 +9,7 @@ code, unlock, ride, park, end the rental.
 | `apps/iot-gateway` | Device gateway skeleton (no protocol until supplier docs) |
 | `apps/rider-mobile` | Rider app (Expo SDK 57, Android/iOS) |
 | `apps/rider-web` | Rider web app (Next.js) |
-| `apps/staff-web` | Admin (`/admin`) and operator (`/operator`) dashboards (Next.js) |
+| `apps/staff-web` | Admin (`/admin`) and operator (`/operator`) areas (Next.js; placeholders, no auth yet) |
 | `packages/contracts` | Shared Zod API contracts |
 | `packages/config` | Env config + production safety guard |
 | `packages/db` | Drizzle schema, SQL migrations, test DB helper |

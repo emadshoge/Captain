@@ -62,10 +62,27 @@ Executed checks (cloud session, 2026-10-04):
 - Git: no `.env`, keys, `dist/`, `.next/`, `next-env.d.ts` or database
   files tracked. Only `.env.example` placeholders. Secret-pattern grep clean.
 
+Permission enforcement status (accurate as of Phase 1):
+- **Implemented:** none for users. There is no authentication, no
+  sessions or tokens, and no rider/operator/admin authorization anywhere.
+  The only access-related controls are:
+  - the production config guard (refuses fake/simulated providers);
+  - setup and test tooling refusing staging/production and non-local DBs;
+  - API log redaction of `authorization` and `cookie` headers.
+- **Placeholders:** `staff-web` `/admin` and `/operator` are static pages
+  reachable by anyone. They contain no data or actions. The home page
+  states that no sign-in or role checks exist yet.
+- **Planned:** rider vs staff token audiences and OTP sign-in (Phase 4);
+  role-based authorization on `/v1/operator/*` and `/v1/admin/*` with
+  permission tests for the product-spec §8 matrix, plus audit log
+  (Phase 5); staff-web route guards (Phases 13–14). The API is the
+  intended security boundary.
+
 Skipped / not tested:
 - **Native mobile build (EAS)**: not attempted. No Expo account access
   (D-EXPO), no `eas.json`. Bundle export is not proof a native build works.
-- `expo-doctor` schema and directory checks: blocked here (see above).
+- `expo-doctor` schema and directory checks: blocked in the cloud session;
+  covered by the full doctor run in CI (below).
 - Mobile app on a device or simulator: not run.
 - Next.js apps not exercised in a browser (build only; no E2E yet).
 
@@ -77,7 +94,7 @@ GitHub Actions (run 37209133576, commit 19013c4): **both jobs passed**.
   cloud session).
 
 Blockers:
-- None for Phase 2.
+- None for Phase 2. Phase 2 not started (awaiting owner go-ahead).
 - Phase 8 blocked on official Chapa docs (T-01). Phase 11 native builds
   blocked on Expo access (D-EXPO).
 - Deprecation notices from drizzle-kit's transitive `@esbuild-kit/*`

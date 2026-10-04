@@ -9,7 +9,7 @@ make them configurable and reference the ID.
 |---|---|---|---|
 | R-01 | Captain is a dockless scooter-sharing rental platform in Ethiopia (not ride-hailing). | 2026-10-04 | Owner correction. |
 | R-02 | TypeScript throughout, pnpm monorepo. Turborepo **not** adopted in Phase 1; `pnpm -r` runs tasks in topological order. | 2026-10-04 (revised) | Six workspaces don't need a task cache yet. Revisit if CI time grows. |
-| R-03 | Mobile: Expo SDK 57 + Expo Router; web: Next.js 16 (App Router). Admin and operator share one Next.js app (`staff-web`) with `/admin` and `/operator` route areas. | 2026-10-04 (revised) | Owner architecture; shared staff auth and fleet views; API enforces roles (architecture §2). |
+| R-03 | Mobile: Expo SDK 57 + Expo Router; web: Next.js 16 (App Router). Admin and operator share one Next.js app (`staff-web`) with `/admin` and `/operator` route areas. | 2026-10-04 (revised) | Owner architecture; shared staff auth and fleet views; the API will enforce roles (planned, Phase 5; not implemented in Phase 1). |
 | R-04 | Backend: **Fastify 5** + `fastify-type-provider-zod`. | 2026-10-04 | Direct reuse of shared Zod contracts, low overhead, plugin boundaries; see architecture §4. |
 | R-05 | PostgreSQL 16 for all persistent data; Drizzle ORM + drizzle-kit SQL migrations, `pg` driver. | 2026-10-04 | PG 16 server available in cloud image; SQL-first ORM with strong TS types. |
 | R-06 | **No Redis** initially; pg-boss on PostgreSQL for jobs/timeouts. | 2026-10-04 | No concrete requirement; revisit per architecture §10. |

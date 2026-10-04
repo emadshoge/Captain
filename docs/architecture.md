@@ -57,9 +57,12 @@ with separate route areas (`/admin/*`, `/operator/*`). Why:
 - Operator capabilities are a subset of admin capabilities (product-spec
   §8), so one app avoids duplicating fleet views.
 - One build and one deployment instead of two.
-Separation is still enforced: route-area guards in the app plus
-role checks on every `/v1/operator/*` and `/v1/admin/*` API route. The API
-is the security boundary, not the UI. If the two need independent
+**Planned** separation (Phases 4–5, not implemented yet): route-area
+guards in the app plus role checks on every `/v1/operator/*` and
+`/v1/admin/*` API route. The API is the security boundary, not the UI.
+**Current state (Phase 1):** no authentication or authorization exists
+anywhere. The `/admin` and `/operator` pages are static placeholders
+reachable by anyone, and the API has only `/health` and `/ready`. If the two need independent
 release cycles or domains later, the route areas can be split into two
 apps without changing the API.
 
