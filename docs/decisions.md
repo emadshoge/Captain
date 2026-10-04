@@ -58,6 +58,11 @@ make them configurable and reference the ID.
 | R-45 | Email OTP via standard SMTP (nodemailer), provider-neutral; SMS OTP via GeezSMS **blocked** (no adapter until official docs are reviewed). | 2026-10-04 | Never invent provider APIs. |
 | R-46 | Ethiopian mobile numbers only for SMS OTP (`+2519…`, `+2517…`). | 2026-10-04 | Launch market; foreign numbers can use email. |
 
+| R-47 | Authorization is enforced by one fail-closed `preHandler` for every `/v1/admin`, `/v1/operator` and `/v1/staff` route. Each route declares `config.permission`; a missing declaration denies access. Permissions are loaded from the database per request. | 2026-10-04 | A forgotten check cannot open a route; role changes apply immediately. |
+| R-48 | Staff second factor: TOTP (RFC 6238, SHA-1, 6 digits, 30 s, ±1 step), secret encrypted with AES-256-GCM (HKDF from `AUTH_SECRET`), replay blocked by last-used step. With `STAFF_MFA_REQUIRED` (mandatory in staging/production) staff APIs require a session that verified TOTP; unenrolled staff can only reach enrollment. Admins reset lost authenticators (audited, sessions revoked). | 2026-10-04 | Supersedes the "planned" part of R-44; WebAuthn remains a possible upgrade. |
+| R-49 | Staff lockout protections: no self status/role/MFA changes; at least one active admin must always remain. | 2026-10-04 | Prevents accidental or malicious loss of administration. |
+| R-50 | Viewing a rider's personal data (`GET /v1/admin/riders/:id`) is audited. | 2026-10-04 | Privacy accountability. |
+
 ## Unresolved (owner decisions required)
 
 | ID | Question | Needed by phase | Notes / current handling |

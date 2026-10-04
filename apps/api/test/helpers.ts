@@ -26,12 +26,16 @@ export async function destroyHarness(h: Harness | undefined) {
 /** A fresh random client IP so per-IP rate limits never couple tests. */
 export const randomIp = () => `10.${randomInt(0, 255)}.${randomInt(0, 255)}.${randomInt(1, 254)}`;
 
+let appSequence = 0;
+
 export async function buildTestApp(
   h: Harness,
   env: Record<string, string> = {},
   senders?: OtpSenders,
 ) {
-  let nowMs = Date.parse('2026-10-04T12:00:00Z');
+  // Each test app gets its own 2-hour time window so OTP cooldowns and hourly
+  // limits (which are real and shared via the database) never couple tests.
+  let nowMs = Date.parse('2026-10-04T12:00:00Z') + appSequence++ * 2 * 3_600_000;
   const lines: string[] = [];
   const config = loadApiConfig({
     APP_ENV: 'test',
@@ -40,6 +44,7 @@ export async function buildTestApp(
     OTP_SMS_PROVIDER: 'log_only',
     OTP_EMAIL_PROVIDER: 'log_only',
     COOKIE_SECURE: 'false',
+    STAFF_MFA_REQUIRED: 'false',
     ...env,
   });
   const otpSenders = senders ?? {
@@ -63,6 +68,7 @@ export async function buildTestApp(
     advance: (ms: number) => {
       nowMs += ms;
     },
+    now: () => nowMs,
     lastCode(destination: string) {
       const all = [otpSenders.sms, otpSenders.email]
         .filter((s): s is LogOnlySender => s instanceof LogOnlySender)
@@ -107,3 +113,104 @@ export async function signInRider(
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+export interface StaffSession {
+  staffId: string;
+  cookie: string;
+  csrfToken: string;
+  /** Request as this staff member (adds cookie, Origin and CSRF header). */
+  call: (
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+    url: string,
+    payload?: unknown,
+  ) => ReturnType<TestApp['request']>;
+}
+
+/** Signs a staff member in on the web (email OTP, optional TOTP). */
+export async function signInStaff(
+  t: TestApp,
+  email: string,
+  totpCode?: string,
+): Promise<StaffSession> {
+  const req = await t.request({
+    method: 'POST',
+    url: '/v1/auth/otp/request',
+    payload: { audience: 'staff', channel: 'email', destination: email },
+  });
+  if (req.statusCode !== 202) {
+    const errors = t.lines.filter((line) => line.includes('"level":"error"')).slice(-1);
+    throw new Error(`staff otp request failed: ${req.body} ${errors.join('')}`);
+  }
+  const verify = await t.request({
+    method: 'POST',
+    url: '/v1/auth/otp/verify',
+    headers: { origin: WEB_ORIGIN },
+    payload: {
+      challengeId: req.json().challengeId,
+      code: t.lastCode(email),
+      client: 'web',
+      ...(totpCode ? { totpCode } : {}),
+    },
+  });
+  if (verify.statusCode !== 200) {
+    const error = new Error(`staff otp verify failed: ${verify.statusCode} ${verify.body}`);
+    Object.assign(error, { response: verify });
+    throw error;
+  }
+  const cookie = (verify.cookies as { name: string; value: string }[])
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+  const csrfToken = verify.json().csrfToken as string;
+  return {
+    staffId: verify.json().subject.staffId,
+    cookie,
+    csrfToken,
+    call: (method, url, payload) =>
+      t.request({
+        method,
+        url,
+        headers: { cookie, origin: WEB_ORIGIN, 'x-csrf-token': csrfToken },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      }),
+  };
+}
+
+/**
+ * Posts a balanced test journal between a system account and a rider wallet
+ * (positive = credit the rider). Rolls back on any error.
+ */
+export async function postTestJournal(
+  pool: Pool,
+  riderId: string,
+  amountSantim: number,
+  systemAccount: 'adjustments' | 'refunds' | 'provider_clearing' = 'adjustments',
+  kind: 'adjustment' | 'refund' | 'topup' = 'adjustment',
+) {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const journal = await client.query<{ id: string }>(
+      `insert into journal_entries (kind, reference_type, reference_id, description, created_by_type)
+       values ($1, 'test', gen_random_uuid()::text, 'test journal', 'system') returning id`,
+      [kind],
+    );
+    const journalId = journal.rows[0]!.id;
+    await client.query(
+      `insert into ledger_lines (journal_id, account_id, amount_santim)
+       select $1::uuid, id, -$2::bigint from ledger_accounts where type = $3::ledger_account_type and rider_id is null`,
+      [journalId, amountSantim, systemAccount],
+    );
+    await client.query(
+      `insert into ledger_lines (journal_id, account_id, amount_santim)
+       select $1::uuid, id, $2::bigint from ledger_accounts where type = 'rider_wallet' and rider_id = $3::uuid`,
+      [journalId, amountSantim, riderId],
+    );
+    await client.query('commit');
+    return journalId;
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}

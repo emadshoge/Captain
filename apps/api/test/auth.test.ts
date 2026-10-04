@@ -763,6 +763,7 @@ describe('development outbox', () => {
       AUTH_SECRET: 's'.repeat(40),
       CORS_ORIGINS: 'https://staging.captain.et',
       COOKIE_SECURE: 'true',
+      STAFF_MFA_REQUIRED: 'true',
     });
     const none = await staging.request({ method: 'GET', url: '/v1/dev/outbox?destination=x' });
     expect(none.statusCode).toBe(404);

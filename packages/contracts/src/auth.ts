@@ -22,6 +22,11 @@ export const OtpVerifySchema = z.object({
   challengeId: z.uuid(),
   code: z.string().regex(/^\d{6}$/),
   client: ClientSchema,
+  /** Staff with a confirmed authenticator must also send the current TOTP code. */
+  totpCode: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
 });
 export type OtpVerify = z.infer<typeof OtpVerifySchema>;
 
@@ -110,4 +115,7 @@ export const AUTH_ERROR_CODES = {
   CSRF_FAILED: 'CSRF_FAILED',
   CONTACT_IN_USE: 'CONTACT_IN_USE',
   INVALID_DESTINATION: 'INVALID_DESTINATION',
+  MFA_REQUIRED: 'MFA_REQUIRED',
+  MFA_INVALID: 'MFA_INVALID',
+  MFA_ENROLLMENT_REQUIRED: 'MFA_ENROLLMENT_REQUIRED',
 } as const;

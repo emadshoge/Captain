@@ -7,6 +7,7 @@ import { normalizeEmail, normalizeEthiopianPhone } from '../lib/contacts';
 import { generateOtpCode, hmacHex, randomToken, safeEqual, sha256Hex } from '../lib/crypto';
 import { type Queryable, one, withTransaction } from '../lib/db';
 import { RATE_LIMITS, enforceRateLimit } from '../lib/rate-limit';
+import { decryptSecret, verifyTotp } from '../lib/totp';
 import { type Channel, DeliveryError, type OtpSenders } from './senders';
 
 export interface AuthDeps {
@@ -36,6 +37,8 @@ export type AuthContext =
       via: 'bearer' | 'cookie';
       roles: string[];
       permissions: Set<string>;
+      /** TOTP verified when this session was created. */
+      mfaVerified: boolean;
     };
 
 const INVALID_CODE = () =>
@@ -303,6 +306,7 @@ async function createSession(
   subject: { type: 'rider'; riderId: string } | { type: 'staff'; staffId: string },
   client: Client,
   meta: RequestMeta,
+  mfaVerified = false,
 ): Promise<IssuedSession> {
   const now = deps.now();
   const maxMs =
@@ -312,8 +316,9 @@ async function createSession(
   const sessionExpiresAt = new Date(now.getTime() + maxMs);
   const sessionId = randomUUID();
   await q.query(
-    `insert into auth_sessions (id, subject_type, rider_id, staff_id, client, expires_at, last_used_at, user_agent, ip, created_at)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$7)`,
+    `insert into auth_sessions (id, subject_type, rider_id, staff_id, client, expires_at, last_used_at, user_agent, ip,
+       created_at, mfa_verified)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$7,$10)`,
     [
       sessionId,
       subject.type,
@@ -324,6 +329,7 @@ async function createSession(
       now,
       meta.userAgent?.slice(0, 300) ?? null,
       meta.ip,
+      mfaVerified,
     ],
   );
   const tokens = await issueTokens(deps, q, sessionId, sessionExpiresAt);
@@ -339,13 +345,13 @@ export interface LoginResult {
 
 export async function verifyLogin(
   deps: AuthDeps,
-  input: { challengeId: string; code: string; client: Client },
+  input: { challengeId: string; code: string; client: Client; totpCode?: string },
   meta: RequestMeta,
 ): Promise<LoginResult> {
   await enforceRateLimit(deps.pool, RATE_LIMITS.otpVerifyPerIp, meta.ip, deps.now());
   const result = await withTransaction(
     deps.pool,
-    async (client): Promise<LoginResult | typeof INVALID> => {
+    async (client): Promise<LoginResult | typeof INVALID | MfaFailure> => {
       const challenge = await consumeChallenge(deps, client, input.challengeId, input.code, {
         purpose: 'login',
       });
@@ -365,6 +371,38 @@ export async function verifyLogin(
           [challenge.staff_id],
         );
         if (!staff || staff.status !== 'active') throw suspended();
+
+        // Second factor: required whenever the staff member has a confirmed authenticator.
+        let mfaVerified = false;
+        const totp = await one<{ secret_ciphertext: string; last_used_step: number | null }>(
+          client,
+          `select secret_ciphertext, last_used_step from staff_totp
+           where staff_id = $1 and confirmed_at is not null for update`,
+          [staff.id],
+        );
+        if (totp) {
+          const step = input.totpCode
+            ? verifyTotp(
+                decryptSecret(totp.secret_ciphertext, deps.config.AUTH_SECRET),
+                input.totpCode,
+                deps.now().getTime(),
+                totp.last_used_step,
+              )
+            : null;
+          if (step === null) {
+            // Keep the email code usable for a retry with the right TOTP, but count the failure.
+            await client.query(
+              `update otp_challenges set consumed_at = null, attempts = attempts + 1 where id = $1`,
+              [challenge.id],
+            );
+            return { mfaFailure: input.totpCode ? 'invalid' : 'required' };
+          }
+          await client.query(`update staff_totp set last_used_step = $2 where staff_id = $1`, [
+            staff.id,
+            step,
+          ]);
+          mfaVerified = true;
+        }
         const roles = (
           await client.query<{ role_key: string }>(
             `select role_key from staff_roles where staff_id = $1`,
@@ -381,11 +419,12 @@ export async function verifyLogin(
           { type: 'staff', staffId: staff.id },
           input.client,
           meta,
+          mfaVerified,
         );
         await client.query(
-          `insert into audit_log (actor_type, actor_staff_id, action, target_type, target_id, ip)
-         values ('staff', $1::uuid, 'staff.login', 'staff_user', $1::text, $2)`,
-          [staff.id, meta.ip],
+          `insert into audit_log (actor_type, actor_staff_id, action, target_type, target_id, after, ip)
+           values ('staff', $1::uuid, 'staff.login', 'staff_user', $1::text, $3, $2)`,
+          [staff.id, meta.ip, JSON.stringify({ mfaVerified })],
         );
         return { session, subject: { type: 'staff', staffId: staff.id, roles } };
       }
@@ -434,7 +473,20 @@ export async function verifyLogin(
     },
   );
   if (result === INVALID) throw INVALID_CODE();
+  if ('mfaFailure' in result) {
+    throw result.mfaFailure === 'required'
+      ? new AppError(
+          401,
+          AUTH_ERROR_CODES.MFA_REQUIRED,
+          'Enter the code from your authenticator app.',
+        )
+      : new AppError(401, AUTH_ERROR_CODES.MFA_INVALID, 'The authenticator code is incorrect.');
+  }
   return result;
+}
+
+interface MfaFailure {
+  mfaFailure: 'required' | 'invalid';
 }
 
 function suspended() {
@@ -567,11 +619,12 @@ export async function authenticateAccessToken(
     staff_id: string | null;
     client: Client;
     last_used_at: Date;
+    mfa_verified: boolean;
     subject_status: string | null;
   }>(
     deps.pool,
     `select t.session_id, t.expires_at, s.revoked_at, s.expires_at as session_expires_at, s.subject_type,
-            s.rider_id, s.staff_id, s.client, s.last_used_at,
+            s.rider_id, s.staff_id, s.client, s.last_used_at, s.mfa_verified,
             coalesce(r.status::text, st.status::text) as subject_status
      from session_tokens t
      join auth_sessions s on s.id = t.session_id
@@ -623,6 +676,7 @@ export async function authenticateAccessToken(
     permissions: new Set(
       perms.rows.map((p) => p.permission_key).filter((p): p is string => p !== null),
     ),
+    mfaVerified: row.mfa_verified,
   };
 }
 
