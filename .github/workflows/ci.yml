@@ -167,6 +167,10 @@ jobs:
         run: pnpm --filter @captain/api build
       - name: Failure drills
         run: pnpm --filter @captain/api drills
+      - name: Backup and restore drill (pg_dump / pg_restore 16, matching the server)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y --no-install-recommends postgresql-client-16
+          PATH="/usr/lib/postgresql/16/bin:$PATH" pnpm --filter @captain/api backup-drill
       - name: Load smoke test (short; full run is documented in docs/performance.md)
         run: pnpm --filter @captain/api perf
         env:
@@ -174,3 +178,56 @@ jobs:
           PERF_SCOOTERS: '150'
           PERF_RIDERS: '50'
           PERF_RIDING: '20'
+
+  images:
+    name: Container images (build and smoke test; not pushed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway CI-only credentials for the service container.
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build images
+        run: |
+          docker build -f docker/node-service.Dockerfile --build-arg APP=api -t captain-api:ci .
+          docker build -f docker/node-service.Dockerfile --build-arg APP=iot-gateway -t captain-iot-gateway:ci .
+          docker build -f docker/web.Dockerfile --build-arg APP=rider-web --build-arg NEXT_PUBLIC_API_URL=http://localhost:3000 -t captain-rider-web:ci .
+          docker build -f docker/web.Dockerfile --build-arg APP=staff-web --build-arg NEXT_PUBLIC_API_URL=http://localhost:3000 -t captain-staff-web:ci .
+      - name: Smoke test images
+        env:
+          DB: postgres://postgres:postgres@localhost:5432/captain_smoke
+        run: |
+          set -euo pipefail
+          psql postgres://postgres:postgres@localhost:5432/postgres -c 'create database captain_smoke'
+          docker run --rm --network host -e APP_ENV=development -e DATABASE_URL="$DB" captain-api:ci node dist/cli/migrate.js
+          docker run -d --name api --network host -e APP_ENV=development -e DATABASE_URL="$DB" captain-api:ci
+          docker run -d --name worker --network host -e APP_ENV=development -e DATABASE_URL="$DB" captain-api:ci node dist/worker.js
+          docker run -d --name gateway --network host -e APP_ENV=development -e DEVICE_ADAPTER=simulated captain-iot-gateway:ci node dist/main.js
+          docker run -d --name rider-web --network host -e PORT=3001 captain-rider-web:ci
+          docker run -d --name staff-web --network host -e PORT=3002 captain-staff-web:ci
+          for url in http://localhost:3000/ready http://localhost:3100/health http://localhost:3001/sign-in http://localhost:3002/sign-in; do
+            for i in $(seq 1 30); do curl -fsS "$url" > /dev/null && break; sleep 1; done
+            curl -fsS "$url" > /dev/null && echo "ok $url"
+          done
+          test "$(docker inspect -f '{{.State.Running}}' worker)" = true
+          # The production guard refuses fake/simulated providers at startup.
+          if docker run --rm -e APP_ENV=production -e DATABASE_URL="$DB" -e PAYMENT_PROVIDER=fake captain-api:ci; then
+            echo 'production guard did not stop the API' && exit 1
+          fi
+          echo 'production guard ok'
+      - name: Container logs on failure
+        if: failure()
+        run: for c in api worker gateway rider-web staff-web; do echo "== $c"; docker logs "$c" 2>&1 | tail -50 || true; done

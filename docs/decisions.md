@@ -101,6 +101,9 @@ make them configurable and reference the ID.
 | R-86 | One E2E harness (`apps/rider-web/e2e/harness.ts`) serves both web apps; staff accounts are created through the staff CLI against the throwaway database. | 2026-10-04 | No duplicated orchestration. |
 | R-87 | `createPool` always attaches a pool `error` listener (API/worker log it). Idle connections dropped by the server are discarded and replaced instead of crashing the process. | 2026-10-04 | Found by the database drill (Phase 12). |
 | R-88 | Performance is measured with a reproducible script against built bundles and a throwaway database; results are recorded with the machine and workload, and acceptance thresholds apply to that test only. No capacity claims beyond what was measured. | 2026-10-04 | Master order: no unlimited-scale claims. |
+| R-89 | Container images: one Node image for API/worker/migrations (`docker/node-service.Dockerfile`, self-contained esbuild bundles) and one for the gateway; Next.js apps as standalone servers (`docker/web.Dockerfile`, `NEXT_STANDALONE=1`), built per environment because `NEXT_PUBLIC_API_URL` is compiled in. Built and smoke-tested in CI; not pushed until a registry exists. | 2026-10-04 | Phase 13. |
+| R-90 | Release migrations run as a one-off job from the API image (`node dist/cli/migrate.js`, `--status` for review). Production requires `CAPTAIN_MIGRATE_CONFIRM_DATABASE=<database name>` per run, after a verified backup. Migrations stay backward compatible (expand/contract) so app rollbacks never need schema rollbacks. | 2026-10-04 | Supersedes "production migrations refused" in the old CLI. |
+| R-91 | Backups: managed backups + PITR; a restore drill (pg_dump/pg_restore into a fresh database, verify counts, ledger and database rules) runs in CI. Restores always go to a new instance. | 2026-10-04 | Phase 13. |
 
 ## Unresolved (owner decisions required)
 

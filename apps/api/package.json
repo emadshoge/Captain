@@ -12,7 +12,8 @@
     "staff": "tsx src/cli/staff.ts",
     "worker": "tsx src/worker.ts",
     "perf": "tsx perf/load.ts",
-    "drills": "tsx perf/drills.ts"
+    "drills": "tsx perf/drills.ts",
+    "backup-drill": "tsx perf/backup-drill.ts"
   },
   "dependencies": {
     "@captain/config": "workspace:*",

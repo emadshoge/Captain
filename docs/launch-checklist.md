@@ -23,7 +23,7 @@ riders) → production.
 | L10 | Android app installed from an EAS build and tested on a real phone | B9 | pending | — |
 | L11 | iPhone app installed via TestFlight/internal and tested | B9, B10 | pending | — |
 | L12 | Web rider and staff flows tested on staging in real browsers | staging | pending | — |
-| L13 | Database backup restored into a scratch instance and verified | staging | pending | — |
+| L13 | Database backup restored into a scratch instance and verified | staging | pending (procedure automated: `backup-drill` in CI on throwaway data; staging restore still required) | — |
 | L14 | Release rollback rehearsed | staging | pending | — |
 | L15 | Payment ↔ ledger reconciliation report matches provider records | L3 | pending | — |
 | L16 | Approved pricing, zones, legal text, branding in production config | Section A of user-actions | pending | — |

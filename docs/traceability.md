@@ -113,8 +113,8 @@ Updated at the end of every phase.
 
 | Req | Requirement | Status | Phase / blocker |
 |---|---|---|---|
-| D1 | Hosting evaluation and deployment docs | planned | 13 |
+| D1 | Hosting evaluation and deployment docs | implemented (docs/deployment.md, docs/runbooks.md; container images built and smoke-tested in CI; release migration command; backup/restore drill in CI) | 13 |
 | D2 | Staging deploy | blocked (B7, authorization) | 13 |
-| D3 | EAS profiles and identifiers | planned | 9 |
+| D3 | EAS profiles and identifiers | implemented (apps/rider-mobile/eas.json, app.json) | 9 |
 | D4 | Native builds | blocked (B9) | 9 |
-| D5 | Store checklists | planned | 13 |
+| D5 | Store checklists | drafted (docs/store-release.md; policies to confirm) | 13 |
