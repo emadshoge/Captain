@@ -169,6 +169,51 @@ describe('Gateway with a fake internal API', () => {
     expect(gateway.getStats()).toMatchObject({ adapter: 'simulated', simulated: true, devices: 1 });
   });
 
+  it('does not take commands before the device list has been loaded (API down at start)', async () => {
+    let deviceCalls = 0;
+    const api = await fakeApi((req) => {
+      if (req.url?.startsWith('/internal/v1/devices')) {
+        deviceCalls++;
+        return deviceCalls === 1
+          ? { status: 503, body: {} }
+          : { status: 200, body: [device('SIM-L', { delayMs: 5 })] };
+      }
+      if (req.url?.startsWith('/internal/v1/commands/pending')) {
+        return {
+          status: 200,
+          body: [
+            {
+              id: 'cmd-late',
+              supplierDeviceId: 'SIM-L',
+              type: 'unlock',
+              deadlineAt: new Date().toISOString(),
+            },
+          ],
+        };
+      }
+      if (req.url?.includes('/result'))
+        return { status: 200, body: { accepted: true, late: false, duplicate: false } };
+      return { status: 200, body: { results: ['stored'] } };
+    });
+    const gateway = new Gateway(
+      new SimulatedDeviceAdapter({ telemetryIntervalMs: 60_000 }),
+      new InternalApiClient(api.url, 't'.repeat(40)),
+      silentLogger,
+      { commandPollIntervalMs: 20, telemetryFlushIntervalMs: 20, deviceSyncIntervalMs: 60_000 },
+    );
+    await gateway.start();
+    await wait(150);
+    await gateway.stop();
+    const urls = api.seen.map((r) => r.url);
+    const firstPoll = urls.findIndex((u) => u.startsWith('/internal/v1/commands/pending'));
+    const secondSync = urls.findIndex((u, i) => u.startsWith('/internal/v1/devices') && i > 0);
+    expect(secondSync).toBeGreaterThan(-1);
+    expect(firstPoll).toBeGreaterThan(secondSync);
+    expect(
+      api.seen.find((r) => r.url === '/internal/v1/commands/cmd-late/result')?.body,
+    ).toMatchObject({ outcome: 'ack' });
+  });
+
   it('retries results while the API is failing and drops after a permanent 4xx', async () => {
     let failures = 2;
     const api = await fakeApi((req) => {

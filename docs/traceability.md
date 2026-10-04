@@ -103,7 +103,7 @@ Updated at the end of every phase.
 | Req | Requirement | Status | Phase |
 |---|---|---|---|
 | C1 | Rider mobile screens (product-spec §5) | implemented + tested (jest component/unit tests, JS bundle export); map **blocked** (B1/B5, list fallback); native build **blocked** (B9) | 9 |
-| C2 | Rider web screens | planned | 10 |
+| C2 | Rider web screens | implemented + tested (Playwright E2E: real API, worker, PostgreSQL, fake payments, simulated gateway); map **blocked** (B1/B5) | 10 |
 | C3 | Admin tools | planned | 11 |
 | C4 | Operator tools | planned | 11 |
 | C5 | CSV exports with formula-injection protection | planned | 11 |

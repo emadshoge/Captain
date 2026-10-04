@@ -6,18 +6,58 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–9 (Phase 9 = rider mobile app; native builds not run).
-- **Next phase:** Phase 10 — Rider web app
+- **Completed phases:** 0–10 (Phase 10 = rider web app with E2E).
+- **Next phase:** Phase 11 — Staff web (admin and operator)
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
   `claude/phase-4-auth` (PR #4); Phase 5 `claude/phase-5-authz` (PR #5);
   Phase 6 `claude/phase-6-fleet` (PR #6); Phase 7 `claude/phase-7-wallet`
   (PR #7); Phase 8 `claude/phase-8-rides` (PR #8); Phase 9
-  `claude/phase-9-mobile` (stacked on Phase 8).
+  `claude/phase-9-mobile` (PR #9); Phase 10 `claude/phase-10-rider-web`
+  (stacked on Phase 9).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 10: Rider web app
+CI for Phase 9: run 37230185581 on `2ed351b`, all jobs passed (including
+expo-doctor with network access).
+
+Changed:
+- `apps/rider-web` (Next.js 16, client components): cookie-session API
+  client with in-memory CSRF token and shared refresh (R-78); sign-in
+  (SMS/email code), home (current ride, start by scooter code with price
+  confirmation and availability reasons), live ride (polling, timer,
+  estimate, pause/resume/end with best-effort location), wallet (balance,
+  top-up via checkout redirect, history), return page that only asks the
+  server to verify (R-79), history and receipts, sign-out. SIMULATED and
+  test-pricing labels; provisional styling with dark mode and focus rings.
+- API: dev-only fake checkout page now has Pay/Fail links redirecting to
+  `RIDER_RETURN_URL` (+ API test).
+- IoT gateway fix: no command fetching before the device list is loaded
+  (R-81, + regression test).
+- Test DB drop made graceful (R-82).
+- E2E harness and Playwright specs (R-80); new CI job `e2e`.
+
+Executed checks:
+- `pnpm check` green: API 147, gateway 12, mobile 24, others unchanged.
+- E2E (local, Chromium from the cloud image): 3/3 passed —
+  1. sign in by SMS code (dev outbox), reload keeps the session, top up
+     500 ETB through the SIMULATED checkout (signed webhook → server
+     verification) and see the balance, start a ride on `DEV-0001`, the
+     simulated gateway acks the unlock, end the ride (simulated lock ack),
+     charged amount equals the receipt total and the wallet balance;
+  2. unknown scooter code and low balance messages;
+  3. a cookie-authenticated POST without the CSRF token is refused (403
+     CSRF_FAILED); sign-out invalidates the session (401).
+
+Not verified:
+- Mapbox map (blocked B1/B5); camera QR scanning on web (manual code
+  only, per plan). Real payments/OTP/devices remain simulated.
+- CI E2E job runs for the first time with this PR.
+
+Next: Phase 11 — staff web (admin and operator tools).
 
 ### 2026-10-04 — Phase 9: Rider mobile app and EAS configuration
 CI for Phase 8: run 37229454474 on `d7feaab`, both jobs passed.

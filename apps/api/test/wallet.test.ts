@@ -391,6 +391,35 @@ describe('verify-before-credit', () => {
     ).toBe(404);
   });
 
+  it('lets a browser pay on the fake checkout page and returns to the rider app', async () => {
+    const provider = new FakePaymentProvider();
+    const t = await buildTestApp(
+      h,
+      { RIDER_RETURN_URL: 'http://localhost:3001/wallet/return' },
+      undefined,
+      provider,
+    );
+    const rider = await signInRider(t);
+    const { txRef } = (await topUp(t, rider.accessToken, 50_000)).json();
+    const page = await t.request({ method: 'GET', url: `/v1/dev/fake-checkout/${txRef}` });
+    expect(page.body).toContain('SIMULATED payment');
+    const pay = await t.request({
+      method: 'GET',
+      url: `/v1/dev/fake-checkout/${txRef}/pay?outcome=success`,
+    });
+    expect(pay.statusCode).toBe(302);
+    expect(pay.headers.location).toBe(`http://localhost:3001/wallet/return?txRef=${txRef}`);
+    expect((await wallet(t, rider.accessToken)).balanceSantim).toBe(50_000);
+    expect(
+      (
+        await t.request({
+          method: 'GET',
+          url: '/v1/dev/fake-checkout/unknown-ref/pay?outcome=success',
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
   it('runs the development fake checkout end to end', async () => {
     const { t, rider } = await setup();
     const { txRef } = (await topUp(t, rider.accessToken, 55_000)).json();

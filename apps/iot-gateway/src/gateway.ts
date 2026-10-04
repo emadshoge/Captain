@@ -62,6 +62,8 @@ export class Gateway {
     };
   }
 
+  private synced = false;
+
   async start() {
     await this.adapter.start({
       telemetry: (report) => this.bufferTelemetry(report),
@@ -90,14 +92,17 @@ export class Gateway {
     await this.flushTelemetry();
   }
 
-  async syncDevices() {
+  async syncDevices(): Promise<boolean> {
     try {
       const devices = await this.api.listDevices(this.adapter.name);
       this.adapter.syncDevices(devices);
       this.stats.devices = devices.length;
+      this.synced = true;
+      return true;
     } catch (error) {
       this.stats.apiErrors++;
       this.logger.warn({ err: error }, 'device sync failed');
+      return false;
     }
   }
 
@@ -105,6 +110,9 @@ export class Gateway {
     if (this.polling) return;
     this.polling = true;
     try {
+      // Fetching marks commands as sent, so never fetch before the adapter
+      // knows the devices (e.g. the API was down when the gateway started).
+      if (!this.synced && !(await this.syncDevices())) return;
       const commands = await this.api.pendingCommands(this.adapter.name);
       this.stats.lastPollAt = new Date().toISOString();
       for (const command of commands) {

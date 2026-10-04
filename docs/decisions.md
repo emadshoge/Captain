@@ -90,6 +90,11 @@ make them configurable and reference the ID.
 | R-75 | Until Mapbox is available (token + docs, B1/B5) the home screen lists nearby scooters instead of a map; `@rnmapbox/maps` is not added yet. | 2026-10-04 | No map SDK integration without docs/token. |
 | R-76 | Mobile tests: jest-expo 57 + React Native Testing Library 13 (jest 29, as required by jest-expo). | 2026-10-04 | Component tests without emulators. |
 | R-77 | EAS profiles: `development` (dev client, internal), `preview` (internal APK, staging), `production` (store, remote auto-increment). `EXPO_PUBLIC_API_URL` per profile is set in EAS environment variables once staging/production hosts exist (D-HOST). Microphone and background location are blocked permissions. | 2026-10-04 | Phase 9 EAS config; builds not run (B9). |
+| R-78 | Rider web: client components call the API directly with `credentials: 'include'`; tokens stay in HttpOnly SameSite=Strict cookies; the CSRF token is fetched from `/v1/auth/session` and held in memory only; one shared refresh on 401. Web and API must be same-site (e.g. captain.et / api.captain.et; D-DNS). | 2026-10-04 | Phase 10. |
+| R-79 | The web return page after checkout only asks the server to verify the remembered payment id (sessionStorage) and displays the server's answer. The dev-only fake checkout page offers Pay/Fail links that send the signed fake webhook and redirect to `RIDER_RETURN_URL`. | 2026-10-04 | R-57; never credit from a redirect. |
+| R-80 | E2E harness (`apps/rider-web/e2e/run.ts`): throwaway database (migrated + labelled dev fixtures), built API, worker, SIMULATED gateway and rider web, then Playwright (Chromium). Runs as its own CI job. | 2026-10-04 | No Docker needed. |
+| R-81 | The IoT gateway never fetches commands before it has loaded the device list (fetching marks them sent; an empty adapter would drop them). Found by the E2E run when the API started after the gateway. | 2026-10-04 | Robustness fix. |
+| R-82 | Test databases are dropped without FORCE first (short retries), forcing only as a last resort, to avoid terminating sockets that `pool.end()` is still closing. | 2026-10-04 | Removes an intermittent unhandled 57P01 in tests. |
 
 ## Unresolved (owner decisions required)
 

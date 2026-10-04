@@ -770,19 +770,58 @@ export const fakeCheckoutRoutes: FastifyPluginAsyncZod<{ deps: PaymentDeps }> = 
   app,
   { deps },
 ) => {
-  const provider = deps.provider;
-  if (!(provider instanceof FakePaymentProvider)) return;
+  if (!(deps.provider instanceof FakePaymentProvider)) return;
+  const provider: FakePaymentProvider = deps.provider;
+
+  const esc = (value: string) => value.replace(/[<>&"']/g, '');
 
   app.get('/v1/dev/fake-checkout/:txRef', async (request, reply) => {
     const { txRef } = request.params as { txRef: string };
     const tx = provider.transactions.get(txRef);
     if (!tx) throw notFound();
+    const ref = encodeURIComponent(txRef);
     return reply.type('text/html').send(
       `<!doctype html><meta charset="utf-8"><title>SIMULATED checkout</title>
-       <h1>SIMULATED payment — no real money</h1><p>Reference ${txRef.replace(/[<>&"]/g, '')}, amount ${tx.amountSantim / 100} ETB.</p>
-       <p>Use POST /v1/dev/fake-checkout/{txRef}/complete with {"outcome":"success"|"failed"}.</p>`,
+       <h1>SIMULATED payment — no real money</h1><p>Reference ${esc(txRef)}, amount ${tx.amountSantim / 100} ETB.</p>
+       <p><a id="pay" href="/v1/dev/fake-checkout/${ref}/pay?outcome=success">Pay (simulated)</a>
+       · <a id="fail" href="/v1/dev/fake-checkout/${ref}/pay?outcome=failed">Fail (simulated)</a></p>`,
     );
   });
+
+  async function complete(txRef: string, outcome: 'success' | 'failed') {
+    provider.settle(txRef, outcome);
+    const { raw, signature } = provider.signWebhook({
+      event_id: `evt-${txRef}-${outcome}`,
+      tx_ref: txRef,
+      status: outcome,
+    });
+    return app.inject({
+      method: 'POST',
+      url: '/v1/webhooks/fake',
+      headers: { 'content-type': 'application/json', 'x-fake-signature': signature },
+      payload: raw,
+    });
+  }
+
+  /** Browser flow: "pays", sends the signed webhook, returns to the rider app. */
+  app.get(
+    '/v1/dev/fake-checkout/:txRef/pay',
+    {
+      schema: {
+        params: z.object({ txRef: z.string().min(5).max(80) }),
+        querystring: z.object({ outcome: z.enum(['success', 'failed']) }),
+      },
+    },
+    async (request, reply) => {
+      if (!provider.transactions.has(request.params.txRef)) throw notFound();
+      await complete(request.params.txRef, request.query.outcome);
+      const back = deps.config.RIDER_RETURN_URL;
+      if (!back) return reply.type('text/html').send('<p>SIMULATED payment recorded.</p>');
+      const url = new URL(back);
+      url.searchParams.set('txRef', request.params.txRef);
+      return reply.redirect(url.toString());
+    },
+  );
 
   /** Simulates the customer paying and the provider sending its signed webhook. */
   app.post(
@@ -794,18 +833,7 @@ export const fakeCheckoutRoutes: FastifyPluginAsyncZod<{ deps: PaymentDeps }> = 
       },
     },
     async (request) => {
-      provider.settle(request.params.txRef, request.body.outcome);
-      const { raw, signature } = provider.signWebhook({
-        event_id: `evt-${request.params.txRef}-${request.body.outcome}`,
-        tx_ref: request.params.txRef,
-        status: request.body.outcome,
-      });
-      const response = await app.inject({
-        method: 'POST',
-        url: '/v1/webhooks/fake',
-        headers: { 'content-type': 'application/json', 'x-fake-signature': signature },
-        payload: raw,
-      });
+      const response = await complete(request.params.txRef, request.body.outcome);
       return { simulated: true, webhookStatus: response.statusCode, webhook: response.json() };
     },
   );
