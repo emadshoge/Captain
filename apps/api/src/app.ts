@@ -19,6 +19,7 @@ import { registerErrorHandling } from './errors';
 import { internalRoutes } from './fleet/internal-routes';
 import { riderFleetRoutes } from './fleet/rider-routes';
 import { fleetStaffRoutes } from './fleet/staff-routes';
+import { incidentRoutes } from './ops/incident-routes';
 import { riderAccountRoutes } from './rider/routes';
 import { initRideEngine } from './rides/engine';
 import { riderRideRoutes, staffRideRoutes } from './rides/routes';
@@ -130,6 +131,7 @@ export async function buildApp({
   await app.register(riderFleetRoutes, { deps });
   await app.register(fleetStaffRoutes, { deps });
   await app.register(internalRoutes, { deps });
+  await app.register(incidentRoutes, { deps });
 
   const rideDeps = { config, pool: dbPool, now: deps.now };
   initRideEngine(rideDeps);

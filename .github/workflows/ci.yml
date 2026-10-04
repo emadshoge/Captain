@@ -86,7 +86,7 @@ jobs:
         run: pnpm --filter @captain/rider-mobile run doctor
 
   e2e:
-    name: Rider web E2E (Playwright, real API + PostgreSQL, simulated devices)
+    name: Web E2E (Playwright, real API + PostgreSQL, simulated devices)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -118,8 +118,10 @@ jobs:
         run: pnpm build
       - name: Install Chromium for Playwright
         run: pnpm --filter @captain/rider-web exec playwright install --with-deps chromium
-      - name: E2E
+      - name: Rider web E2E
         run: pnpm --filter @captain/rider-web run e2e
+      - name: Staff web E2E (includes operator-cannot-do-admin checks)
+        run: pnpm --filter @captain/staff-web run e2e
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -128,4 +130,6 @@ jobs:
           path: |
             apps/rider-web/playwright-report
             apps/rider-web/test-results
+            apps/staff-web/playwright-report
+            apps/staff-web/test-results
           retention-days: 7

@@ -274,3 +274,65 @@ export const SimulationScenarioSchema = z.object({
   /** Simulated movement (km/h) reported in telemetry; > 0 makes lock unsafe. */
   speedKmh: z.number().min(0).max(60).default(0),
 });
+
+// --- Incidents (operator review of ride/device problems) -------------------
+
+export const IncidentKindSchema = z.enum([
+  'late_unlock_ack',
+  'unlock_failed',
+  'completion_timeout',
+  'completion_nack',
+  'telemetry_mismatch',
+  'parking_dispute',
+  'damage_report',
+  'billing_dispute',
+  'safety_report',
+  'other',
+]);
+export const IncidentStatusSchema = z.enum(['open', 'in_progress', 'resolved']);
+export const IncidentResolutionSchema = z.enum([
+  'completed_confirmed',
+  'completed_adjusted',
+  'cancelled_no_charge',
+  'no_action',
+  'other',
+]);
+
+export const IncidentSchema = z.object({
+  id: z.uuid(),
+  kind: IncidentKindSchema,
+  status: IncidentStatusSchema,
+  rideId: z.uuid().nullable(),
+  scooterId: z.uuid().nullable(),
+  scooterCode: z.string().nullable(),
+  deviceId: z.uuid().nullable(),
+  riderId: z.uuid().nullable(),
+  reportedByType: z.enum(['system', 'staff', 'rider']),
+  description: z.string(),
+  assignedStaffId: z.uuid().nullable(),
+  resolution: IncidentResolutionSchema.nullable(),
+  resolutionNote: z.string().nullable(),
+  resolvedByStaffId: z.uuid().nullable(),
+  resolvedAt: z.iso.datetime().nullable(),
+  isSimulated: z.boolean(),
+  createdAt: z.iso.datetime(),
+});
+
+export const IncidentsQuerySchema = z.object({
+  status: z.enum(['open', 'in_progress', 'resolved', 'unresolved']).default('unresolved'),
+  scooterId: z.uuid().optional(),
+  rideId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});
+
+export const CreateIncidentSchema = z.object({
+  kind: z.enum(['parking_dispute', 'damage_report', 'billing_dispute', 'safety_report', 'other']),
+  scooterId: z.uuid().optional(),
+  rideId: z.uuid().optional(),
+  description: z.string().trim().min(5).max(2_000),
+});
+
+export const ResolveIncidentSchema = z.object({
+  resolution: IncidentResolutionSchema,
+  note: ReasonSchema,
+});
