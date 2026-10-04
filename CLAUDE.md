@@ -89,6 +89,10 @@ Read these before starting any task:
 ## Conventions
 
 - TypeScript everywhere, `strict` mode. pnpm workspaces. Node.js 22 LTS.
+- Log only through `@captain/logging`. Never log request bodies or
+  headers, and never pass secrets to a log call. Redaction is a safety net,
+  not permission. Throw `AppError` for client-safe errors; anything else
+  becomes a generic 500.
 - Shared request/response schemas live in `packages/contracts` (Zod) and
   are the single source of truth for API shapes.
 - Commit messages: imperative mood, describe the phase and change.

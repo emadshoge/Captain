@@ -38,6 +38,12 @@ make them configurable and reference the ID.
 | R-28 | Each DB test file gets a fresh database via `createTestDatabase()`, which refuses staging/production and non-local hosts. | 2026-10-04 | Real PostgreSQL isolation without Docker. |
 | R-29 | `APP_ENV` has no default and must be set explicitly. | 2026-10-04 | A missing value must never become `development` (which allows fakes) on a production host. |
 
+| R-30 | Logging: pino 10 via `@captain/logging` for API and gateway; layered redaction (keys, strings, URLs, header paths); bodies and headers never logged. | 2026-10-04 | Fastify-native, structured JSON; redaction is tested. |
+| R-31 | Request IDs: accept a safe `x-request-id`, otherwise generate a UUID; echo it in the header, error bodies and logs. | 2026-10-04 | Support traceability; blocks log injection. |
+| R-32 | Error envelope carries a required `requestId`; unexpected errors return a generic 500 with no internal detail. | 2026-10-04 | Avoid leaking internals; let riders quote an ID to support. |
+| R-33 | `LOG_LEVEL=debug/trace` refused in production. | 2026-10-04 | Verbose logs increase exposure risk. |
+| R-34 | Phase 2 branched from PR #1's head and its PR targets the PR #1 branch (stacked), because PR #1 is not merged yet. | 2026-10-04 | Owner had no preference; keeps the Phase 2 diff reviewable and merges nothing. |
+
 ## Unresolved (owner decisions required)
 
 | ID | Question | Needed by phase | Notes / current handling |

@@ -493,7 +493,41 @@ Testcontainers (requires Docker, unavailable).
   `EXPO_TOKEN` is present in the cloud environment and no EAS project ID
   exists. No build may be claimed submittable until verified (Phase 11).
 
-## 14. Security baseline
+## 14. Logging, request IDs and errors (Phase 2)
+
+- **Structured logs**: `@captain/logging` (pino 10) writes one JSON object
+  per line with `level`, ISO `time`, `service`, `env`, `msg`. The API uses
+  it as Fastify's logger. The IoT gateway uses it directly.
+- **Request IDs**: an incoming `x-request-id` is reused only if it matches
+  `^[A-Za-z0-9._:-]{1,128}$`, which prevents log injection. Otherwise a UUID is
+  generated. It is returned in the `x-request-id` header, in every error body
+  (`error.requestId`), and as `requestId` on every request-scoped log line.
+- **Redaction**, in layers:
+  1. Sensitive keys at any depth are replaced with `[REDACTED]`: passwords,
+     secrets, tokens, OTP codes, authorization, cookies, API/private keys,
+     credentials, signatures, database URLs/connection strings. This
+     includes child-logger bindings.
+  2. Strings are scrubbed. Credentials in `scheme://user:pass@` URLs,
+     `Bearer`/`Basic` values and `password=`-style pairs are masked in
+     messages, error messages and stacks.
+  3. Request URLs are logged with sensitive query values masked.
+  4. pino path redaction is applied to header locations.
+  Provider *selections* such as `OTP_SMS_PROVIDER` are not secrets and stay
+  visible.
+- **No bodies or headers in logs**: request log lines carry method, URL,
+  route, status and response time only.
+- **Error envelope**: `{ error: { code, message, details?, requestId } }`.
+  - Validation failures: `400 VALIDATION_FAILED` with issue paths and
+    messages only. Submitted values are never echoed.
+  - Framework 4xx (bad JSON, size limit, media type): fixed generic messages.
+  - `AppError`: carries a client-safe code/message.
+  - Anything else: `500 INTERNAL_ERROR` "An unexpected error occurred."; the
+    redacted cause is logged with the request ID.
+- **Config guard additions**: `LOG_LEVEL` `debug`/`trace` refused in
+  production. Config error messages name variables, never values. Startup
+  logs a redacted configuration summary.
+
+## 15. Security baseline
 
 - OTP codes: random 6 digits, stored as hash, 5-minute TTL, attempt limits,
   resend cooldown; never logged in full.

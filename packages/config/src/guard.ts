@@ -27,6 +27,12 @@ export function assertProductionSafe(
   if (config.APP_ENV !== 'production') return;
 
   const issues: string[] = [];
+  // Verbose levels can capture request details; never enable them in production.
+  if (config.LOG_LEVEL === 'debug' || config.LOG_LEVEL === 'trace') {
+    issues.push(
+      `LOG_LEVEL: "${config.LOG_LEVEL}" is not allowed in production (use info or higher)`,
+    );
+  }
   for (const key of PROVIDER_KEYS) {
     const value = config[key];
     if (typeof value === 'string' && FAKE_PROVIDER_VALUES.has(value)) {

@@ -13,6 +13,7 @@ code, unlock, ride, park, end the rental.
 | `packages/contracts` | Shared Zod API contracts |
 | `packages/config` | Env config + production safety guard |
 | `packages/db` | Drizzle schema, SQL migrations, test DB helper |
+| `packages/logging` | Structured logger, redaction, request IDs |
 
 Start here: [`CLAUDE.md`](CLAUDE.md), [`docs/`](docs/), and
 [`docs/cloud-setup.md`](docs/cloud-setup.md) for the cloud environment.

@@ -14,10 +14,20 @@ describe('SantimSchema', () => {
 describe('ErrorResponseSchema', () => {
   it('requires an upper-snake-case code', () => {
     expect(
-      ErrorResponseSchema.safeParse({ error: { code: 'NOT_FOUND', message: 'x' } }).success,
+      ErrorResponseSchema.safeParse({ error: { code: 'NOT_FOUND', message: 'x', requestId: 'r1' } })
+        .success,
     ).toBe(true);
     expect(
-      ErrorResponseSchema.safeParse({ error: { code: 'not-found', message: 'x' } }).success,
+      ErrorResponseSchema.safeParse({ error: { code: 'not-found', message: 'x', requestId: 'r1' } })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('ErrorResponseSchema requestId', () => {
+  it('requires a requestId so clients can quote it to support', () => {
+    expect(
+      ErrorResponseSchema.safeParse({ error: { code: 'NOT_FOUND', message: 'x' } }).success,
     ).toBe(false);
   });
 });

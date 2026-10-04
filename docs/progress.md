@@ -5,11 +5,107 @@ was not tested, blockers, and the next task.
 
 ## Current status
 
-- **Completed phase:** Phase 1 — Cloud setup, skeletons, automated checks
-- **Next phase:** Phase 2 — Configuration hardening and logging
-- **Branch:** `claude/optimistic-cannon-do0z8i`
+- **Completed phase:** Phase 2 — Configuration hardening and logging
+  (pending owner review; CI result below)
+- **Next phase:** Phase 3 — Database schema and migrations
+- **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
+  not merged); Phase 2 `claude/phase-2-config-logging`, stacked on PR #1.
 
 ## Log
+
+### 2026-10-04 — Phase 2: Configuration hardening and logging
+Preconditions:
+- `main` does **not** contain Phase 1. PR #1 is an open draft and `main`
+  has only the initial commit. With no owner preference, Phase 2 was
+  branched from PR #1's head (`6c33449`) and its PR targets the PR #1
+  branch (R-34). Merge PR #1 first, then retarget the Phase 2 PR to `main`.
+- Startup hook: ran `.claude/hooks/session-start.sh` with
+  `CLAUDE_CODE_REMOTE=true` after stopping PostgreSQL. It installed from
+  the lockfile, restarted the cluster, waited for readiness, applied 0
+  pending migrations, and exited 0. It did **not** run automatically at
+  session start: sessions start from `main`, which lacks `.claude/`.
+
+Changed:
+- New `packages/logging`: pino 10 logger factory, layered redaction
+  (`isSensitiveKey`, `redactString`, `redactDeep`, `redactUrl`), request
+  ID resolution.
+- API: Fastify uses the shared logger. Request IDs come from a safe
+  `x-request-id` or a UUID and are returned in the header, logs and error
+  bodies. Central error handler and 404 handler with the
+  `{ error: { code, message, details?, requestId } }` envelope;
+  `AppError` for client-safe errors. Redacted config summary at startup.
+- IoT gateway: structured logs instead of `console.log`, request IDs on
+  the health server, standard 404 envelope, explicit SIMULATED warning
+  at startup. Still no protocol or commands.
+- Config: production refuses `LOG_LEVEL=debug|trace`.
+- Contracts: `ErrorResponseSchema` requires `requestId`;
+  `COMMON_ERROR_CODES`.
+
+Executed checks (cloud session):
+- `pnpm check` exit 0: Prettier, ESLint (0 warnings), typecheck (10
+  projects), 112 tests, builds, Expo check.
+- Tests by package: config 28, contracts 7, db 7 (real PG 16.14),
+  logging 51, api 14 (includes real-DB readiness), iot-gateway 5.
+- Behaviour covered by tests:
+  - **Redaction:** authorization/Bearer, cookies, passwords, OTP codes,
+    tokens, API keys, `DATABASE_URL`, connection strings in messages and
+    error messages, child-logger bindings, sensitive query parameters.
+    Provider selections stay visible.
+  - **Request bodies:** a POST with password/OTP produces no body content
+    in logs.
+  - **Request IDs:** generated, propagated when safe, replaced when unsafe
+    (no injected text in logs), and present on request log lines and in
+    error bodies, for both API and gateway.
+  - **Errors:**
+    - 500 returns a generic message, with the cause logged and redacted;
+    - `AppError` passes its code and message through;
+    - 404;
+    - 400 validation responses contain paths only, never submitted values;
+    - malformed JSON returns 400, an oversized body 413, and an unsupported
+      media type 415.
+  - **Config:** production guard rules plus debug/trace levels; invalid
+    values never echoed in error messages; multiple issues reported together.
+- Built bundles run from outside the repo:
+  - **API:** JSON log lines with `requestId`; config summary shows
+    `DATABASE_URL: [REDACTED]` and provider names; zero secret strings in
+    the captured log; no deprecation warnings.
+  - **Production guard:** `LOG_LEVEL=debug` in production exits 1.
+  - **Gateway:** structured logs, the SIMULATED warning, and a 404 with
+    `requestId`.
+- The smoke test caught and fixed two issues before commit: OTP provider
+  setting names were over-redacted, and the Fastify options
+  `requestIdLogLabel`/`disableRequestLogging` were deprecated (replaced
+  with `LogController`).
+
+Skipped / not tested:
+- **Log shipping and retention:** no log destination or aggregation
+  service. Logs go to stdout, and the hosting provider is undecided
+  (D-HOST).
+- **Production-scale tests:** no load or performance testing of the
+  redaction overhead.
+- **`trustProxy` and client IP handling:** not configured; they depend on
+  the hosting topology.
+- **Authentication and authorization:** still none (Phase 4–5).
+  `UNAUTHORIZED`/`FORBIDDEN` codes exist in the envelope but nothing
+  produces them yet.
+- **Mobile and web apps:** no logging changes (client-side logging is out
+  of scope).
+
+Blockers:
+- None for Phase 3.
+- The Phase 2 PR cannot target `main` cleanly until PR #1 is merged.
+
+### 2026-10-04 — Phase 1 final CI verification
+- Run **37209327708** on commit **`6c33449`** (head of PR #1): both jobs
+  passed.
+  - Checks job: format, lint, typecheck, tests against `postgres:16`, and
+    builds.
+  - Mobile job: Expo bundles and `expo-doctor` "21/21 checks passed. No
+    issues detected!".
+- Earlier green runs: 37209133576 (`19013c4`), 37209243914 (`abd1409`).
+- Phase 1 permission status unchanged: no authentication or authorization
+  is implemented (see the Phase 1 entry).
+
 
 ### 2026-10-04 — Phase 1: Cloud setup, skeletons, automated checks
 Changed:
