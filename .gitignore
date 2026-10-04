@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# Expo / React Native
+.expo/
+.expo-shared/
+web-build/
+android/
+ios/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+*.apk
+*.aab
+*.ipa
+
+# Environment and secrets (commit only .env.example)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+google-services.json
+GoogleService-Info.plist
+
+# Local PostgreSQL cluster and other session-local state
+.local/
+
+# Test output
+playwright-report/
+test-results/
+blob-report/
+
+# Logs and OS/editor files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
