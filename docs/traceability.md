@@ -104,9 +104,9 @@ Updated at the end of every phase.
 |---|---|---|---|
 | C1 | Rider mobile screens (product-spec §5) | implemented + tested (jest component/unit tests, JS bundle export); map **blocked** (B1/B5, list fallback); native build **blocked** (B9) | 9 |
 | C2 | Rider web screens | implemented + tested (Playwright E2E: real API, worker, PostgreSQL, fake payments, simulated gateway); map **blocked** (B1/B5) | 10 |
-| C3 | Admin tools | planned | 11 |
-| C4 | Operator tools | planned | 11 |
-| C5 | CSV exports with formula-injection protection | planned | 11 |
+| C3 | Admin tools | implemented + tested (staff-web E2E: adjustments with confirmation, maker-checker refunds, audit, CSV download, TOTP enrolment) | 11 |
+| C4 | Operator tools | implemented + tested (staff-web E2E: fleet with SIMULATED labels, status change with reason, incidents; operator refused admin pages and APIs) | 11 |
+| C5 | CSV exports with formula-injection protection | implemented + tested (API formula test; UI download in E2E) | 7/11 |
 | C6 | Localization support; approved translations | scaffolding implemented (mobile, English only); translations blocked (D-L10N) | 9–11 |
 
 ## Deployment and distribution (N, O)

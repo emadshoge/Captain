@@ -95,6 +95,10 @@ make them configurable and reference the ID.
 | R-80 | E2E harness (`apps/rider-web/e2e/run.ts`): throwaway database (migrated + labelled dev fixtures), built API, worker, SIMULATED gateway and rider web, then Playwright (Chromium). Runs as its own CI job. | 2026-10-04 | No Docker needed. |
 | R-81 | The IoT gateway never fetches commands before it has loaded the device list (fetching marks them sent; an empty adapter would drop them). Found by the E2E run when the API started after the gateway. | 2026-10-04 | Robustness fix. |
 | R-82 | Test databases are dropped without FORCE first (short retries), forcing only as a last resort, to avoid terminating sockets that `pool.end()` is still closing. | 2026-10-04 | Removes an intermittent unhandled 57P01 in tests. |
+| R-83 | Staff web uses the same cookie/CSRF client pattern as rider web; navigation and page guards follow the session's permissions, but the API remains the only enforcement point (forbidden pages show "No access"; direct API calls get 403). | 2026-10-04 | Phase 11. |
+| R-84 | Financial and destructive staff actions (wallet adjustments, refund approval/completion, ride resolution, suspensions, staff status and authenticator resets, service lock/unlock) need an explicit confirmation tick in the UI plus a reason that the API audits. | 2026-10-04 | Master order L. |
+| R-85 | Incidents API (`/v1/operator/incidents`: list, report, take, resolve with resolution + note; audited). Handling an incident never sends a device command; money is settled only through ride review. | 2026-10-04 | Missing piece found while building the staff UI. |
+| R-86 | One E2E harness (`apps/rider-web/e2e/harness.ts`) serves both web apps; staff accounts are created through the staff CLI against the throwaway database. | 2026-10-04 | No duplicated orchestration. |
 
 ## Unresolved (owner decisions required)
 

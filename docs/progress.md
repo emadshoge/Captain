@@ -6,8 +6,8 @@ was not tested, blockers, and the next task.
 ## Current status
 
 - **Master work order** in progress (plan revision 2).
-- **Completed phases:** 0–10 (Phase 10 = rider web app with E2E).
-- **Next phase:** Phase 11 — Staff web (admin and operator)
+- **Completed phases:** 0–11 (Phase 11 = staff web, admin and operator).
+- **Next phase:** Phase 12 — Performance and resilience testing
 - **Branches:** Phase 0–1 `claude/optimistic-cannon-do0z8i` (PR #1, open,
   not merged); Phase 2 `claude/phase-2-config-logging` (PR #2, stacked on
   PR #1); Phase 3 `claude/phase-3-data-model` (PR #3); Phase 4
@@ -15,10 +15,56 @@ was not tested, blockers, and the next task.
   Phase 6 `claude/phase-6-fleet` (PR #6); Phase 7 `claude/phase-7-wallet`
   (PR #7); Phase 8 `claude/phase-8-rides` (PR #8); Phase 9
   `claude/phase-9-mobile` (PR #9); Phase 10 `claude/phase-10-rider-web`
-  (stacked on Phase 9).
+  (PR #10); Phase 11 `claude/phase-11-staff-web` (stacked on Phase 10).
   Merge order: PR #1 → #2 → Phase 3 PR → later phases.
 
 ## Log
+
+### 2026-10-04 — Phase 11: Staff web (admin and operator)
+CI for Phase 10: run 37231219012 on `0162989`, all jobs passed (including
+the first CI run of the rider E2E suite).
+
+Changed:
+- API: incidents endpoints (R-85) with tests.
+- `apps/staff-web` (Next.js 16): email-code sign-in (+ optional
+  authenticator code), permission-aware navigation and page guards
+  (R-83), overview counters, fleet list/detail (SIMULATED labels, status
+  change, service commands with motion-safety confirmation, maintenance
+  tasks, telemetry, commands), alerts (acknowledge/resolve), maintenance
+  queue, rides (list, event log, send to review, resolve with
+  confirmation), incidents (report/take/resolve), riders (search,
+  detail, wallet history, adjustment, refund request,
+  suspend/unsuspend), payments (filter, re-verify, CSV download),
+  refunds (maker-checker approve/reject, record provider refund),
+  onboarding (scooter, device, assignment), pricing plans (list, create
+  draft, activate), zones (list, create from GeoJSON), staff (create,
+  roles, status, authenticator reset), audit trail, account
+  (authenticator enrolment). Confirmations for money/destructive actions
+  (R-84).
+- E2E harness shared by both web apps (R-86); CI `e2e` job runs both
+  suites.
+
+Executed checks:
+- `pnpm check` green (API 149 incl. 2 incident tests).
+- Staff E2E 3/3: operator sees fleet/incidents but no admin links, gets
+  "No access" on `/admin/payments` and 403 from the API with their
+  session; changes DEV-0005 to maintenance with a reason; reports, takes
+  and resolves an incident. Admin A adjusts a rider wallet (+25 ETB;
+  submit disabled until confirmed), an overdraw is refused, requests a
+  10 ETB refund that A cannot approve; Admin B approves; balance 35 ETB;
+  audit shows the adjustment. Admin C downloads the reconciliation CSV
+  and enrols an authenticator (TOTP computed in the test).
+- Rider E2E 3/3 still passing with the shared harness.
+
+Bugs found by the E2E run and fixed: audit page expected an array
+(API returns `{ entries, nextBefore }`).
+
+Not verified:
+- Map-based zone editing (Mapbox blocked); zone creation is GeoJSON text.
+- Staff MFA enforcement in the UI flow is exercised only with
+  `STAFF_MFA_REQUIRED=false` in E2E (API tests cover enforcement).
+
+Next: Phase 12 — performance and resilience testing.
 
 ### 2026-10-04 — Phase 10: Rider web app
 CI for Phase 9: run 37230185581 on `2ed351b`, all jobs passed (including
