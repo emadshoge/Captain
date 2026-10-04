@@ -45,7 +45,7 @@ PRs are stacked (each based on the previous one) and **none is merged**;
 merge in order #1 → #13 (→ this report's PR).
 
 Test counts at the last full local run: API 149, db 33, config 41,
-contracts 7, domain 51, gateway 12, mobile 24, rider E2E 3, staff E2E 3,
+contracts 7, domain 41, logging 51, gateway 12, mobile 24, rider E2E 3, staff E2E 3,
 drills 4/4, backup drill PASS, load test PASS.
 
 ## 3. Deployed environments
