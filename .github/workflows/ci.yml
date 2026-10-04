@@ -133,3 +133,44 @@ jobs:
             apps/staff-web/playwright-report
             apps/staff-web/test-results
           retention-days: 7
+
+  resilience:
+    name: Failure drills and load smoke test (simulated devices)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway CI-only credentials for the service container.
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build API and worker
+        run: pnpm --filter @captain/api build
+      - name: Failure drills
+        run: pnpm --filter @captain/api drills
+      - name: Load smoke test (short; full run is documented in docs/performance.md)
+        run: pnpm --filter @captain/api perf
+        env:
+          PERF_DURATION_SECONDS: '20'
+          PERF_SCOOTERS: '150'
+          PERF_RIDERS: '50'
+          PERF_RIDING: '20'

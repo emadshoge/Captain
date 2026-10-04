@@ -27,7 +27,11 @@ const logger = createLogger({
   level: config.LOG_LEVEL,
   appEnv: config.APP_ENV,
 });
-const pool = createPool({ connectionString: config.DATABASE_URL, max: 3 });
+const pool = createPool({
+  connectionString: config.DATABASE_URL,
+  max: 3,
+  onIdleClientError: (error) => logger.warn({ err: error }, 'idle database connection lost'),
+});
 const provider = createPaymentProvider(config);
 initRideEngine({ config, pool, now: () => new Date() });
 const INTERVAL_MS = 5_000;
