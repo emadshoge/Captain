@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import type { Ride } from '../api/types';
-import { Body, Button, Card, Row, SimulatedBadge, Title } from '../components/ui';
+import { Body, Button, Card, SimulatedBadge, Stat, Title } from '../components/ui';
 import { formatDuration, formatEtb } from '../format';
 import { t } from '../i18n';
 import { availableActions, elapsedSeconds, type RideAction, statusMessage } from './model';
@@ -36,16 +36,18 @@ export function RideCard({
     <Card>
       <Title>{t(statusMessage(ride.status))}</Title>
       <SimulatedBadge simulated={ride.isSimulated} devPricing={ride.pricing.isDevFixture} />
-      <Body muted>{ride.scooterCode}</Body>
-      {ride.startedAt ? (
-        <Row label={t('ride.elapsed')} value={formatDuration(elapsedSeconds(ride, now()))} />
-      ) : null}
-      {ride.fare ? (
-        <Row
-          label={ride.fareIsEstimate ? t('ride.estimate') : t('receipt.total')}
-          value={formatEtb(ride.fare.totalSantim)}
-        />
-      ) : null}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <Stat label={t('ride.scooter')} value={ride.scooterCode} />
+        {ride.startedAt ? (
+          <Stat label={t('ride.elapsed')} value={formatDuration(elapsedSeconds(ride, now()))} />
+        ) : null}
+        {ride.fare ? (
+          <Stat
+            label={ride.fareIsEstimate ? t('ride.estimate') : t('receipt.total')}
+            value={formatEtb(ride.fare.totalSantim)}
+          />
+        ) : null}
+      </View>
       {ride.parkingStatus === 'outside' ? (
         <Body tone="warn">{t('ride.parkingOutside')}</Body>
       ) : null}
@@ -56,7 +58,7 @@ export function RideCard({
             key={action}
             testID={`ride-${action}`}
             label={label[action]}
-            variant={action === 'end' ? 'danger' : 'secondary'}
+            variant={action === 'end' ? 'dark' : 'outline'}
             busy={busy === action}
             disabled={!!busy && busy !== action}
             onPress={() => onAction(action)}

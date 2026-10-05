@@ -95,7 +95,7 @@ function Home() {
       <h1>Ride</h1>
       <p className="muted">Map coming soon. Enter the code printed on the scooter.</p>
       {!target ? (
-        <form onSubmit={find} className="card">
+        <form onSubmit={find} className="card tint">
           <label>
             Scooter code
             <input

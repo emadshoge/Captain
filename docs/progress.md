@@ -22,6 +22,25 @@ was not tested, blockers, and the next task.
 
 ## Log
 
+### 2026-10-05 — Rider UI restyled to the owner's reference design (R-93)
+Branch `claude/rider-ui-design` (stacked on `claude/phase-16-readiness`).
+
+Changed: rider mobile design tokens and UI kit (`apps/rider-mobile/src/components/ui.tsx`:
+palette, Avenir Next on iOS, card/button styles, new `Stat`, `Battery`,
+`Brand`), home (wordmark, scan panel, horizontal scooter cards with battery),
+ride card (stats row; outline pause, navy end), tab/stack colours, account
+menu; rider web `globals.css`, nav wordmark, ride stats row, button styles.
+
+Verified: mobile typecheck, eslint, jest 24/24; rider web typecheck, eslint,
+Playwright E2E 3/3 against local PostgreSQL; screenshots of the web app at
+390×844 in light and dark mode reviewed; colour contrast computed (body/muted
+text ≥ 5:1, button text ≥ 5:1).
+
+Not tested: the mobile app's look on a real phone or simulator (no native
+build, B9) — only unit/render tests; Avenir Next rendering (iOS-only font).
+Not built (need decisions, D-UIFEAT/D-FONT): map, trip planner, achievements,
+referral, rating, parking photo, lock-during-ride.
+
 ### 2026-10-05 — Email OTP provider: Postmark (Phase 14 prep)
 Owner chose **Postmark** for email OTP (R-92, resolves D-EMAIL). No code
 change: the existing SMTP sender (`apps/api/src/auth/senders.ts`) is used

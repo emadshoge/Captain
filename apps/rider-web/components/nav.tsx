@@ -9,9 +9,13 @@ export function Nav() {
   const router = useRouter();
   return (
     <nav aria-label="Main">
-      <Link href="/">
-        <strong>Captain</strong>
+      <Link href="/" className="brand">
+        <span className="brand-mark" aria-hidden="true">
+          C
+        </span>
+        Captain
       </Link>
+      <span className="spacer" />
       {state.status === 'signedIn' ? (
         <>
           <Link href="/wallet">Wallet</Link>

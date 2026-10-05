@@ -88,19 +88,24 @@ function RideView({ id }: { id: string }) {
     <Card>
       <h1 data-testid="ride-status">{STATUS_TEXT[ride.status]}</h1>
       <Badge simulated={ride.isSimulated} devPricing={ride.pricing.isDevFixture} />
-      <p className="muted">{ride.scooterCode}</p>
-      {ride.startedAt ? (
-        <div className="row">
-          <span className="muted">Time</span>
-          <strong>{formatDuration(elapsed)}</strong>
+      <div className="stats">
+        <div className="stat">
+          <span>Scooter</span>
+          <strong>{ride.scooterCode}</strong>
         </div>
-      ) : null}
-      {fare ? (
-        <div className="row">
-          <span className="muted">{ride.fareIsEstimate ? 'Estimated cost' : 'Total'}</span>
-          <strong data-testid="fare">{formatEtb(fare.totalSantim)}</strong>
-        </div>
-      ) : null}
+        {ride.startedAt ? (
+          <div className="stat">
+            <span>Time</span>
+            <strong>{formatDuration(elapsed)}</strong>
+          </div>
+        ) : null}
+        {fare ? (
+          <div className="stat">
+            <span>{ride.fareIsEstimate ? 'Estimated cost' : 'Total'}</span>
+            <strong data-testid="fare">{formatEtb(fare.totalSantim)}</strong>
+          </div>
+        ) : null}
+      </div>
       {ride.status === 'completed' && ride.chargedSantim !== null ? (
         <div className="row">
           <span className="muted">Charged from wallet</span>
@@ -112,19 +117,19 @@ function RideView({ id }: { id: string }) {
       ) : null}
       <ErrorText message={error} />
       {ride.status === 'active' && ride.pricing.pausePerMinuteSantim !== null ? (
-        <button className="secondary" disabled={!!busy} onClick={() => void act('pause')}>
+        <button className="outline" disabled={!!busy} onClick={() => void act('pause')}>
           Pause
         </button>
       ) : null}
       {ride.status === 'paused' ? (
-        <button className="secondary" disabled={!!busy} onClick={() => void act('resume')}>
+        <button className="outline" disabled={!!busy} onClick={() => void act('resume')}>
           Resume
         </button>
       ) : null}
       {ride.status === 'active' || ride.status === 'paused' ? (
         <>
           <p className="muted">Park safely and stop the scooter before ending.</p>
-          <button className="danger" disabled={!!busy} onClick={() => void act('end')}>
+          <button className="dark" disabled={!!busy} onClick={() => void act('end')}>
             End ride
           </button>
         </>
