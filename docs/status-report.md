@@ -50,7 +50,7 @@ drills 4/4, backup drill PASS, load test PASS.
 
 ## 3. Deployed environments
 
-**None.** No staging or production environment exists; container images
+**None yet.** A staging kit for the owner's VPS exists (`deploy/staging`, R-96) and is smoke-tested in CI; it has not been run on the server yet. No production environment exists; container images
 are built and smoke-tested in CI but not pushed. Blocked on B7 (hosting
 account + authorization) and B8 (DNS).
 
@@ -82,6 +82,9 @@ payments, SMS, phones). Launch checklist: `docs/launch-checklist.md`.
 - No `pg` pool error listener: a dropped DB connection crashed API/worker
   (R-87, drill) — also the cause of intermittent test noise.
 - Audit page crashed on the paginated response (staff E2E).
+- Wallet lock needed UPDATE privilege the least-privilege runtime role
+  lacks: every money movement would have failed once deployed (R-94; found
+  by the staging rehearsal, now covered by all API tests, R-95).
 
 ## 7. Outstanding owner actions (grouped)
 

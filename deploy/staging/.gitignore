@@ -1,0 +1,5 @@
+.env
+backups/
+.release
+.release.previous
+releases.log

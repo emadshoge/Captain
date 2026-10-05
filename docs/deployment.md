@@ -198,6 +198,15 @@ never log request bodies or secrets.
   privileges, run `/ready`.
 - Staging restore from a real staging backup is launch checklist L13.
 
-## 10. Runbooks
+## 10. Staging on a single VPS (R-96)
+
+`deploy/staging/` contains the kit the owner runs over SSH: `setup.sh`
+(Docker, generated secrets in a mode-600 `.env`), `deploy.sh <ref>` (build →
+backup → migrate → runtime user → release → `/ready`), `rollback.sh`,
+`backup.sh`, `create-admin.sh`. Step-by-step: `deploy/staging/README.md`.
+CI runs `ci-smoke.sh` against the built images (compose stack without Caddy,
+Caddyfile validated) and the staging rehearsal against the bundles.
+
+## 11. Runbooks
 
 See `docs/runbooks.md`.
