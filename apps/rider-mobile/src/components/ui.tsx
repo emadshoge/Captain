@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,33 +13,52 @@ import {
 } from 'react-native';
 import { t } from '../i18n';
 
-// Provisional design tokens (brand is an open decision, D-UI).
+// Design tokens from the owner-supplied reference UI (R-93): navy, green,
+// teal and coral palette; Avenir Next where the platform ships it. Text on
+// green/coral is navy (white on #38ca89 is 2.1:1, below WCAG AA).
 export const palette = {
   light: {
-    bg: '#ffffff',
-    surface: '#f3f4f6',
-    text: '#111827',
-    muted: '#6b7280',
-    primary: '#0f766e',
-    danger: '#b91c1c',
-    warn: '#92400e',
-    onPrimary: '#ffffff',
-    border: '#d1d5db',
+    bg: '#f6f8fa',
+    surface: '#ffffff',
+    text: '#1a2232',
+    muted: '#626b7b',
+    primary: '#38ca89',
+    accent: '#2ec4c8',
+    dark: '#1a2232',
+    danger: '#ff5a64',
+    dangerText: '#c8303d',
+    warn: '#a35c00',
+    onPrimary: '#1a2232',
+    border: '#e3e8ee',
+    tint: '#e8f8f0',
   },
   dark: {
-    bg: '#0b0f14',
-    surface: '#1f2937',
-    text: '#f9fafb',
-    muted: '#9ca3af',
-    primary: '#2dd4bf',
-    danger: '#f87171',
+    bg: '#121926',
+    surface: '#1a2232',
+    text: '#f5f7fa',
+    muted: '#a0a9b8',
+    primary: '#38ca89',
+    accent: '#2ec4c8',
+    dark: '#f5f7fa',
+    danger: '#ff6b74',
+    dangerText: '#ff8a91',
     warn: '#fbbf24',
-    onPrimary: '#04201d',
-    border: '#374151',
+    onPrimary: '#1a2232',
+    border: '#2c3649',
+    tint: '#163a2c',
   },
 };
 
-export function useTheme() {
+export type Theme = (typeof palette)['light'];
+
+/** Avenir Next ships with iOS; elsewhere the system font is used. */
+export const fonts = {
+  regular: Platform.select({ ios: 'AvenirNext-Regular', default: undefined }),
+  medium: Platform.select({ ios: 'AvenirNext-Medium', default: undefined }),
+  bold: Platform.select({ ios: 'AvenirNext-Bold', default: undefined }),
+};
+
+export function useTheme(): Theme {
   return palette[useColorScheme() === 'dark' ? 'dark' : 'light'];
 }
 
@@ -55,7 +75,10 @@ export function Screen({ children, scroll = true }: { children: ReactNode; scrol
 export function Title({ children }: { children: ReactNode }) {
   const c = useTheme();
   return (
-    <Text accessibilityRole="header" style={[styles.title, { color: c.text }]}>
+    <Text
+      accessibilityRole="header"
+      style={[styles.title, { color: c.text, fontFamily: fonts.bold }]}
+    >
       {children}
     </Text>
   );
@@ -71,8 +94,9 @@ export function Body({
   tone?: 'danger' | 'warn';
 }) {
   const c = useTheme();
-  const color = tone === 'danger' ? c.danger : tone === 'warn' ? c.warn : muted ? c.muted : c.text;
-  return <Text style={[styles.body, { color }]}>{children}</Text>;
+  const color =
+    tone === 'danger' ? c.dangerText : tone === 'warn' ? c.warn : muted ? c.muted : c.text;
+  return <Text style={[styles.body, { color, fontFamily: fonts.regular }]}>{children}</Text>;
 }
 
 export function Button({
@@ -85,14 +109,27 @@ export function Button({
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'dark' | 'outline' | 'danger';
   disabled?: boolean;
   busy?: boolean;
   testID?: string;
 }) {
   const c = useTheme();
-  const bg = variant === 'primary' ? c.primary : variant === 'danger' ? c.danger : c.surface;
-  const fg = variant === 'secondary' ? c.text : c.onPrimary;
+  const bg = {
+    primary: c.primary,
+    danger: c.danger,
+    dark: c.dark,
+    secondary: c.surface,
+    outline: 'transparent',
+  }[variant];
+  const fg = {
+    primary: c.onPrimary,
+    danger: c.onPrimary,
+    dark: c.bg,
+    secondary: c.text,
+    outline: c.text,
+  }[variant];
+  const borderColor = variant === 'outline' ? c.primary : variant === 'secondary' ? c.border : bg;
   return (
     <Pressable
       testID={testID}
@@ -102,13 +139,13 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
+        { backgroundColor: bg, borderColor, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
       ]}
     >
       {busy ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[styles.buttonText, { color: fg }]}>{label}</Text>
+        <Text style={[styles.buttonText, { color: fg, fontFamily: fonts.bold }]}>{label}</Text>
       )}
     </Pressable>
   );
@@ -119,13 +156,18 @@ export function Field(props: TextInputProps & { label: string }) {
   const { label, style, ...rest } = props;
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, { color: c.muted }]}>{label}</Text>
+      <Text style={[styles.label, { color: c.muted, fontFamily: fonts.medium }]}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
         placeholderTextColor={c.muted}
         style={[
           styles.input,
-          { color: c.text, borderColor: c.border, backgroundColor: c.surface },
+          {
+            color: c.text,
+            borderColor: c.border,
+            backgroundColor: c.surface,
+            fontFamily: fonts.regular,
+          },
           style,
         ]}
         {...rest}
@@ -136,7 +178,11 @@ export function Field(props: TextInputProps & { label: string }) {
 
 export function Card({ children }: { children: ReactNode }) {
   const c = useTheme();
-  return <View style={[styles.card, { backgroundColor: c.surface }]}>{children}</View>;
+  return (
+    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      {children}
+    </View>
+  );
 }
 
 /** Visible label for anything running against simulated hardware or test pricing. */
@@ -174,30 +220,102 @@ export function Row({ label, value }: { label: string; value: string }) {
   const c = useTheme();
   return (
     <View style={styles.row}>
-      <Text style={{ color: c.muted }}>{label}</Text>
-      <Text style={{ color: c.text, fontWeight: '600' }}>{value}</Text>
+      <Text style={{ color: c.muted, fontFamily: fonts.regular }}>{label}</Text>
+      <Text style={{ color: c.text, fontWeight: '600', fontFamily: fonts.medium }}>{value}</Text>
+    </View>
+  );
+}
+
+/** Small label/value column, as in the trip summary ("Distance · Spend · Power"). */
+export function Stat({ label, value, testID }: { label: string; value: string; testID?: string }) {
+  const c = useTheme();
+  return (
+    <View style={styles.stat} testID={testID}>
+      <Text style={[styles.statLabel, { color: c.muted, fontFamily: fonts.regular }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: c.text, fontFamily: fonts.bold }]}>{value}</Text>
+    </View>
+  );
+}
+
+/** Battery level in the brand green, amber below 30 %, coral below 15 %. */
+export function Battery({ percent }: { percent: number }) {
+  const c = useTheme();
+  const color = percent < 15 ? c.danger : percent < 30 ? c.warn : c.primary;
+  return (
+    <View style={styles.batteryRow} accessibilityLabel={t('home.battery', { percent })}>
+      <View style={[styles.batteryShell, { borderColor: c.border }]}>
+        <View
+          style={[
+            styles.batteryFill,
+            { backgroundColor: color, width: `${Math.max(4, Math.min(100, percent))}%` },
+          ]}
+        />
+      </View>
+      <Text style={{ color: c.muted, fontSize: 13, fontFamily: fonts.medium }}>{percent}%</Text>
+    </View>
+  );
+}
+
+/** Captain wordmark: green rounded square with the initial, then the name. */
+export function Brand() {
+  const c = useTheme();
+  return (
+    <View style={styles.brand}>
+      <View style={[styles.brandMark, { backgroundColor: c.primary }]}>
+        <Text style={[styles.brandInitial, { color: c.onPrimary, fontFamily: fonts.bold }]}>C</Text>
+      </View>
+      <Text style={[styles.brandName, { color: c.text, fontFamily: fonts.bold }]}>
+        {t('app.name')}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  inner: { padding: 16, gap: 12 },
-  title: { fontSize: 26, fontWeight: '700' },
+  inner: { padding: 16, gap: 14 },
+  title: { fontSize: 24, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 22 },
   button: {
     minHeight: 48,
-    borderRadius: 10,
+    borderRadius: 8,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  buttonText: { fontSize: 17, fontWeight: '600' },
-  field: { gap: 4 },
+  buttonText: { fontSize: 16, fontWeight: '700' },
+  field: { gap: 6 },
   label: { fontSize: 14 },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 17 },
-  card: { borderRadius: 12, padding: 14, gap: 8 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, fontSize: 17 },
+  card: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 10,
+    shadowColor: '#1a2232',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
   badge: { borderWidth: 1, borderRadius: 8, padding: 6, gap: 2, alignSelf: 'flex-start' },
   badgeText: { fontSize: 12, fontWeight: '700' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
+  stat: { flex: 1, gap: 2 },
+  statLabel: { fontSize: 12 },
+  statValue: { fontSize: 16, fontWeight: '700' },
+  batteryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  batteryShell: { width: 28, height: 12, borderWidth: 1, borderRadius: 3, padding: 1 },
+  batteryFill: { height: '100%', borderRadius: 2 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandMark: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandInitial: { fontSize: 18, fontWeight: '800' },
+  brandName: { fontSize: 22, fontWeight: '700' },
 });

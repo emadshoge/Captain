@@ -33,6 +33,7 @@ export const en = {
   'home.battery': 'Battery {percent}%',
   'home.currentRide': 'You have a ride in progress',
   'home.openRide': 'Open ride',
+  'home.scanHint': 'Scan the QR code on the handlebar to unlock.',
 
   'scan.title': 'Scan scooter',
   'scan.permission': 'Allow camera access to scan the QR code on the scooter.',
@@ -59,6 +60,7 @@ export const en = {
   'ride.status.startFailed': 'The scooter did not unlock. You were not charged.',
   'ride.status.review': 'Our team is checking this ride. We will update your receipt.',
   'ride.elapsed': 'Time',
+  'ride.scooter': 'Scooter',
   'ride.estimate': 'Estimated cost',
   'ride.pause': 'Pause',
   'ride.resume': 'Resume',
@@ -92,6 +94,8 @@ export const en = {
   'history.empty': 'No rides yet.',
 
   'account.signOut': 'Sign out',
+  'account.history': 'Riding history',
+  'account.wallet': 'Wallet',
   'account.environment': 'Environment: {env}',
 
   'error.generic': 'Something went wrong. Please try again.',

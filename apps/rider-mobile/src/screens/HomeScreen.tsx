@@ -1,7 +1,19 @@
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import type { NearbyScooter } from '../api/types';
-import { Body, Button, Card, ErrorBanner, Row, Screen, Title } from '../components/ui';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Battery,
+  Body,
+  Brand,
+  Button,
+  Card,
+  ErrorBanner,
+  Screen,
+  Title,
+  fonts,
+  useTheme,
+} from '../components/ui';
 import { appConfig } from '../config';
 import { formatDistance } from '../format';
 import { t } from '../i18n';
@@ -50,31 +62,61 @@ export function HomeScreen({
     };
   }, [client]);
 
+  const c = useTheme();
   const ride = current.data?.ride ?? null;
   return (
     <Screen>
+      <Brand />
       {ride ? (
         <Card>
           <Title>{t('home.currentRide')}</Title>
           <Body>{t(statusMessage(ride.status))}</Body>
-          <Button label={t('home.openRide')} onPress={() => onOpenRide(ride.id)} />
+          <Button variant="dark" label={t('home.openRide')} onPress={() => onOpenRide(ride.id)} />
         </Card>
       ) : (
-        <Button testID="scan" label={t('home.scan')} onPress={onScan} />
+        <View style={[styles.scanPanel, { backgroundColor: c.tint }]}>
+          <Body muted>{t('home.scanHint')}</Body>
+          <Button testID="scan" label={t('home.scan')} onPress={onScan} />
+        </View>
       )}
       <Title>{t('home.nearby')}</Title>
       {appConfig.mapboxToken ? null : <Body muted>{t('home.mapUnavailable')}</Body>}
       {locationDenied ? <Body muted>{t('home.locationDenied')}</Body> : null}
       <ErrorBanner message={error} />
       {nearby?.length === 0 ? <Body muted>{t('home.noNearby')}</Body> : null}
-      {nearby?.map((s) => (
-        <Card key={s.code}>
-          <Row label={s.code} value={formatDistance(s.distanceM)} />
-          {s.batteryPercent !== null ? (
-            <Body muted>{t('home.battery', { percent: s.batteryPercent })}</Body>
-          ) : null}
-        </Card>
-      ))}
+      {nearby?.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.carousel}>
+            {nearby.map((s) => (
+              <View
+                key={s.code}
+                style={[styles.scooter, { backgroundColor: c.surface, borderColor: c.border }]}
+              >
+                <Text style={[styles.code, { color: c.text, fontFamily: fonts.bold }]}>
+                  {s.code}
+                </Text>
+                <Text style={{ color: c.muted, fontFamily: fonts.regular }}>
+                  {formatDistance(s.distanceM)}
+                </Text>
+                {s.batteryPercent !== null ? <Battery percent={s.batteryPercent} /> : null}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  scanPanel: { borderRadius: 14, padding: 16, gap: 12 },
+  carousel: { flexDirection: 'row', gap: 12, paddingBottom: 8 },
+  scooter: {
+    width: 150,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    gap: 6,
+  },
+  code: { fontSize: 16, fontWeight: '700' },
+});
