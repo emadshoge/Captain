@@ -1,0 +1,32 @@
+{
+	email {$ACME_EMAIL}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+}
+
+{$RIDER_HOST} {
+	import security_headers
+	reverse_proxy rider-web:3001
+}
+
+{$STAFF_HOST} {
+	import security_headers
+	header X-Frame-Options DENY
+	reverse_proxy staff-web:3002
+}
+
+{$API_HOST} {
+	import security_headers
+	# The gateway's internal API is private-network only (deployment §7).
+	@internal path /internal /internal/*
+	respond @internal 404
+	reverse_proxy api:3000
+}

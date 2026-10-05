@@ -83,14 +83,19 @@ export async function systemAccountId(q: Queryable, type: SystemAccount): Promis
 }
 
 /**
- * Locks the rider's wallet account row. Every balance-dependent operation
- * (debits, holds, adjustments) takes this lock first, serializing them per
- * rider so concurrent requests cannot overspend.
+ * Locks the rider's wallet. Every balance-dependent operation (debits, holds,
+ * adjustments) takes this lock first, serializing them per rider so
+ * concurrent requests cannot overspend. A transaction-scoped advisory lock is
+ * used instead of `select ... for update` because the runtime role has no
+ * UPDATE privilege on ledger_accounts (reference data), which row locks need.
  */
 export async function lockWallet(client: pg.PoolClient, riderId: string): Promise<string> {
+  await client.query(`select pg_advisory_xact_lock(hashtextextended('captain.wallet:' || $1, 0))`, [
+    riderId,
+  ]);
   const row = await one<{ id: string }>(
     client,
-    `select id from ledger_accounts where type = 'rider_wallet' and rider_id = $1 for update`,
+    `select id from ledger_accounts where type = 'rider_wallet' and rider_id = $1`,
     [riderId],
   );
   if (row) return row.id;

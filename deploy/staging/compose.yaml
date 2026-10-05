@@ -1,0 +1,159 @@
+# Captain STAGING stack for a single Linux VPS (Docker Compose v2).
+# Not for production: simulated scooters only, no payment provider, test
+# business-rule values. See deploy/staging/README.md.
+#
+# Images are built by deploy.sh and tagged with the git commit (CAPTAIN_TAG).
+# Secrets come from deploy/staging/.env on the server (never committed); each
+# service receives only the variables it needs.
+name: captain-staging
+
+x-api-env: &api-env
+  APP_ENV: staging
+  LOG_LEVEL: info
+  HOST: 0.0.0.0
+  PORT: '3000'
+  DATABASE_URL: postgres://captain_api:${API_DB_PASSWORD:?}@postgres:5432/captain
+  TRUST_PROXY: '1'
+  AUTH_SECRET: ${AUTH_SECRET:?}
+  INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?}
+  CORS_ORIGINS: https://${RIDER_HOST:?},https://${STAFF_HOST:?}
+  COOKIE_SECURE: 'true'
+  STAFF_MFA_REQUIRED: 'true'
+  REFUNDS_REQUIRE_SECOND_APPROVER: 'true'
+  AUTH_RIDER_CHANNELS: email
+  OTP_SMS_PROVIDER: none
+  OTP_EMAIL_PROVIDER: smtp
+  SMTP_HOST: ${SMTP_HOST:?}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_REQUIRE_TLS: 'true'
+  SMTP_USER: ${SMTP_USER:?}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:?}
+  EMAIL_FROM: ${EMAIL_FROM:?}
+  # No payment provider in staging: Chapa is blocked (T-01) and the fake
+  # checkout only exists in development. Testers are funded with audited
+  # admin adjustments.
+  PAYMENT_PROVIDER: none
+  DEVICE_ADAPTER: simulated
+  # Unresolved business rules (D-BILLCUT, D-ENDCONF, D-PARK): STAGING TEST
+  # VALUES only, set in .env, not decisions.
+  RIDE_BILLING_CUTOFF: ${RIDE_BILLING_CUTOFF:?}
+  RIDE_END_CONFIRMATION: ${RIDE_END_CONFIRMATION:?}
+  RIDE_PARKING_POLICY: ${RIDE_PARKING_POLICY:?}
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: captain_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: captain
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U captain_owner -d captain']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-off release job: `docker compose run --rm migrate` (deploy.sh does it).
+  migrate:
+    image: captain-api:${CAPTAIN_TAG:?}
+    profiles: [tools]
+    command: ['node', 'dist/cli/migrate.js']
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgres://captain_owner:${POSTGRES_PASSWORD:?}@postgres:5432/captain
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # One-off staff provisioning: `docker compose run --rm staff create ...`.
+  staff:
+    image: captain-api:${CAPTAIN_TAG:?}
+    profiles: [tools]
+    entrypoint: ['node', 'dist/cli/staff.js']
+    environment:
+      APP_ENV: staging
+      DATABASE_URL: postgres://captain_api:${API_DB_PASSWORD:?}@postgres:5432/captain
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    image: captain-api:${CAPTAIN_TAG:?}
+    restart: unless-stopped
+    environment: *api-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    image: captain-api:${CAPTAIN_TAG:?}
+    restart: unless-stopped
+    command: ['node', 'dist/worker.js']
+    environment: *api-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # SIMULATED devices only (labelled in the dashboards). No supplier protocol yet (D-IOT).
+  gateway:
+    image: captain-iot-gateway:${CAPTAIN_TAG:?}
+    restart: unless-stopped
+    command: ['node', 'dist/main.js']
+    environment:
+      APP_ENV: staging
+      DEVICE_ADAPTER: simulated
+      HOST: 0.0.0.0
+      HEALTH_PORT: '3100'
+      API_INTERNAL_URL: http://api:3000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?}
+    depends_on:
+      api: { condition: service_healthy }
+
+  rider-web:
+    image: captain-rider-web:${CAPTAIN_TAG:?}
+    restart: unless-stopped
+    environment:
+      PORT: '3001'
+
+  staff-web:
+    image: captain-staff-web:${CAPTAIN_TAG:?}
+    restart: unless-stopped
+    environment:
+      PORT: '3002'
+
+  # HTTPS with automatic Let's Encrypt certificates for the three hostnames.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      RIDER_HOST: ${RIDER_HOST:?}
+      API_HOST: ${API_HOST:?}
+      STAFF_HOST: ${STAFF_HOST:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - rider-web
+      - staff-web
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

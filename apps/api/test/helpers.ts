@@ -1,4 +1,5 @@
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
+import pg from 'pg';
 import { loadApiConfig } from '@captain/config';
 import type { InjectOptions } from 'fastify';
 import { createPool, type Pool } from '@captain/db';
@@ -11,17 +12,41 @@ export const WEB_ORIGIN = 'http://localhost:3001';
 
 export interface Harness {
   db: TestDatabase;
+  /** Database owner: test setup and inspection. */
   pool: Pool;
+  /**
+   * The app's pool connects as a runtime login role that is only a member of
+   * the least-privilege `captain_app` role, exactly like staging/production
+   * (deploy/staging). Missing grants fail here instead of after a deploy.
+   */
+  appPool: Pool;
+  appUser: string;
 }
 
 export async function createHarness(): Promise<Harness> {
   const db = await createMigratedTestDatabase();
-  return { db, pool: createPool({ connectionString: db.url, max: 5 }) };
+  const pool = createPool({ connectionString: db.url, max: 5 });
+  const appUser = `captain_rt_${randomBytes(6).toString('hex')}`;
+  const password = randomBytes(24).toString('hex');
+  await pool.query(`create role ${appUser} login password '${password}' in role captain_app`);
+  const url = new URL(db.url);
+  url.username = appUser;
+  url.password = password;
+  return { db, pool, appPool: createPool({ connectionString: url.toString(), max: 5 }), appUser };
 }
 
 export async function destroyHarness(h: Harness | undefined) {
-  await h?.pool.end();
-  await h?.db.drop();
+  if (!h) return;
+  await h.appPool.end();
+  await h.pool.end();
+  await h.db.drop();
+  const admin = new pg.Client({ connectionString: process.env.TEST_DATABASE_ADMIN_URL });
+  await admin.connect();
+  try {
+    await admin.query(`drop role if exists ${h.appUser}`);
+  } finally {
+    await admin.end();
+  }
 }
 
 /** A fresh random client IP so per-IP rate limits never couple tests. */
@@ -55,7 +80,7 @@ export async function buildTestApp(
   };
   const app = await buildApp({
     config,
-    pool: h.pool,
+    pool: h.appPool,
     senders: otpSenders,
     now: () => new Date(nowMs),
     ...(paymentProvider === undefined ? {} : { paymentProvider }),

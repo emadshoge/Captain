@@ -22,6 +22,32 @@ was not tested, blockers, and the next task.
 
 ## Log
 
+### 2026-10-05 — Staging deploy kit (R-96) and least-privilege fix (R-94, R-95)
+Branch `claude/staging-deploy-kit` (stacked on `claude/rider-ui-design`).
+Owner asked to deploy; chose their Linux VPS, staging, `staging.captain.et`.
+No server access from this environment, so the deliverable is a kit the
+owner runs over SSH (`deploy/staging`).
+
+Defect found and fixed: `lockWallet` used `select … for update` on
+`ledger_accounts`, which needs UPDATE privilege the runtime role does not
+have, so every adjustment, top-up credit and ride charge returned 500 under
+the deployed role. Now a per-rider transaction advisory lock (R-94). The API
+test harness now connects the app as a `captain_app` member (R-95): before
+the fix 25/149 tests failed, after it 149/149 pass, and the PostgreSQL log
+shows no other permission errors.
+
+Verified: API tests 149/149 as the runtime role; staging rehearsal PASS (7
+steps: migrations, runtime user from the kit's SQL, staff CLI, email code
+over SMTP with STARTTLS, TOTP enrolment, pricing, simulated onboarding,
+rider email sign-in, audited credit, ride charged ETB 12.00 once, ledger
+balanced); `docker compose config` valid; shell syntax; format, lint,
+typecheck.
+
+Not tested here: Docker Compose up, Caddy/Let's Encrypt (no Docker daemon,
+no server) — CI `images` job now runs `ci-smoke.sh` for the compose stack;
+real Postmark delivery and DNS. Blocked on the owner running the kit (B4
+Postmark credentials in the server `.env`, B7 VPS, B8 DNS records).
+
 ### 2026-10-05 — Rider UI restyled to the owner's reference design (R-93)
 Branch `claude/rider-ui-design` (stacked on `claude/phase-16-readiness`).
 
