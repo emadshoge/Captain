@@ -60,7 +60,7 @@ account + authorization) and B8 (DNS).
 |---|---|---|
 | Chapa payments | **blocked**; a fake provider (SIMULATED) exercises the full verify-before-credit flow | T-01 docs unreachable, B1, B2 |
 | GeezSMS OTP | **blocked**; log-only sender in development | T-02, B1, B3 |
-| Email OTP | implemented (SMTP sender), **not verified** — no real message sent | B4 |
+| Email OTP | implemented (SMTP sender; provider Postmark, R-92), **not verified** — no real message sent | B4 (credentials, network access to Postmark SMTP) |
 | Mapbox maps | **blocked**; list of nearby scooters instead | B1, B5 |
 | Supplier IoT protocol | **blocked**; simulator only, real devices refused for lock/unlock | D-IOT, B6 |
 | Native app builds | **blocked**; JS bundle export only (not a native build) | B9 (+ B10 for stores) |

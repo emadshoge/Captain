@@ -54,7 +54,7 @@ Updated at the end of every phase.
 | A6 | Suspension and deletion with financial retention | implemented (suspend/unsuspend, deletion request + staff completion with blockers; ledger retained) | 4/5 |
 | A7 | Profile/contact change with re-verification | implemented | 4 |
 | A8 | Staff provisioning (no public admin sign-up) + stronger staff auth | implemented: audited CLI + admin API (create/status/roles), TOTP second factor with enforcement; UI Phase 11 | 4/5 |
-| A9 | Real email adapter | implemented (SMTP, tested against a local SMTP server); **real delivery unverified** (B4, L2) | 4, 14 |
+| A9 | Real email adapter | implemented (SMTP, tested against a local SMTP server); provider Postmark via SMTP (R-92); **real delivery unverified** (B4, L2) | 4, 14 |
 | A10 | Real GeezSMS adapter | blocked (official docs B1, account B3) | 14 |
 | A11 | Backend permission enforcement + cross-user tests | implemented: fail-closed guard, matrix test (anonymous/rider/operator/admin × every staff route), tampering + cross-rider tests; must be extended for every new route | 5 |
 

@@ -22,6 +22,22 @@ was not tested, blockers, and the next task.
 
 ## Log
 
+### 2026-10-05 — Email OTP provider: Postmark (Phase 14 prep)
+Owner chose **Postmark** for email OTP (R-92, resolves D-EMAIL). No code
+change: the existing SMTP sender (`apps/api/src/auth/senders.ts`) is used
+with `OTP_EMAIL_PROVIDER=smtp` and the Postmark server's SMTP settings.
+
+Checked in this session (names only, no values printed): `SMTP_HOST`,
+`SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` are **unset**.
+Network: smtp.postmarkapp.com ports 587, 2525 and 25 and
+https://api.postmarkapp.com / postmarkapp.com are **blocked** by the
+environment's network policy.
+
+Not tested: real delivery (L2 stays pending). Blocker B4: Postmark server
++ verified sender for `EMAIL_FROM`, credentials in protected
+configuration, network access to the Postmark SMTP host (or a staging
+host that allows outbound SMTP).
+
 ### 2026-10-04 — Phase 16 (partial): launch readiness assessment
 CI for Phase 13: run 37233807405 on `99e5586`, all five jobs passed (the
 `images` smoke test applied migrations from the image, reached API
