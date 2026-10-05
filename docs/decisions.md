@@ -103,6 +103,7 @@ make them configurable and reference the ID.
 | R-88 | Performance is measured with a reproducible script against built bundles and a throwaway database; results are recorded with the machine and workload, and acceptance thresholds apply to that test only. No capacity claims beyond what was measured. | 2026-10-04 | Master order: no unlimited-scale claims. |
 | R-89 | Container images: one Node image for API/worker/migrations (`docker/node-service.Dockerfile`, self-contained esbuild bundles) and one for the gateway; Next.js apps as standalone servers (`docker/web.Dockerfile`, `NEXT_STANDALONE=1`), built per environment because `NEXT_PUBLIC_API_URL` is compiled in. Built and smoke-tested in CI; not pushed until a registry exists. | 2026-10-04 | Phase 13. |
 | R-90 | Release migrations run as a one-off job from the API image (`node dist/cli/migrate.js`, `--status` for review). Production requires `CAPTAIN_MIGRATE_CONFIRM_DATABASE=<database name>` per run, after a verified backup. Migrations stay backward compatible (expand/contract) so app rollbacks never need schema rollbacks. | 2026-10-04 | Supersedes "production migrations refused" in the old CLI. |
+| R-92 | Email OTP provider: **Postmark** (owner choice, 2026-10-05), used through the existing SMTP sender (`OTP_EMAIL_PROVIDER=smtp`, host and credentials from the Postmark server's SMTP settings, STARTTLS required). No Postmark-specific code; an HTTPS API adapter only if SMTP is unavailable on the chosen hosting, written from Postmark's official docs. Needs a verified sender domain/signature for `EMAIL_FROM` (DNS records, B8). | 2026-10-05 | Resolves D-EMAIL. Delivery not verified yet (L2). |
 | R-91 | Backups: managed backups + PITR; a restore drill (pg_dump/pg_restore into a fresh database, verify counts, ledger and database rules) runs in CI. Restores always go to a new instance. | 2026-10-04 | Phase 13. |
 
 ## Unresolved (owner decisions required)
@@ -129,7 +130,6 @@ make them configurable and reference the ID.
 | D-ELIG | Rider eligibility: minimum age, ID verification, terms. | Phase 4 | `eligibility_status` field reserved. |
 | D-UI | Brand colors, logo, app icon, splash, typography. | Phase 11 (mobile UI) | Neutral placeholder theme tokens. |
 | D-HOST | Hosting provider for staging/production API, DB, web apps. | Phase 15 (staging) | Must offer managed PG 16 and region suitable for Ethiopia latency. |
-| D-EMAIL | Email OTP provider (SMTP/API vendor). | Phase 4 | Interface only until chosen. |
 | D-L10N | Languages at launch (Amharic, English, others?). | Phase 11 | i18n scaffolding planned. |
 | D-IOT | Supplier, device model, and protocol documentation. | IoT phase | Blocks real hardware work entirely. |
 | D-EXPO | Expo account/organization and EAS project ownership; Apple/Google developer accounts. | Phase 11 | Access not verified; no `EXPO_TOKEN` in environment. |
